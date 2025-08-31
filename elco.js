@@ -1,37 +1,41 @@
 import { effect, reactive } from "./reactivity";
 
-export function component(obj) {
+export function component(obj, options) {
     let state
+    let root
     let elementMap = {}
     let effects = []
-    let init
+    let initHook = obj.$init
+    let cleanupHook = obj.$cleanup
 
-    if (obj.state) {
-        state = reactive(obj.state)
-        obj.state = state
-    }
-
-    for (const [key, value] of Object.entries(obj)) {
-        switch (key) {
-            case "state":
-                break
-
-            case "init":
-                init = value
-        
-            default:
-                if (!isObject(value) || !value.selector) {
-                    continue
-                }
-                element(value);
+    function start() {
+        if (obj.$state && isObject(obj.$state)) {
+            state = reactive(obj.$state)
+            obj.$state = state
         }
+        
+        root = obj.$root? document.querySelector(obj.$root): document
+
+        for (const [key, value] of Object.entries(obj)) {
+            if (key.startsWith("$") || key.startsWith("_")) {
+                continue
+            }
+            if (!isObject(value) || (!value.selector && !value.$)) {
+                continue
+            }
+            element(key, value);
+        }
+
+        obj.$elements = elementMap
+
+        if (initHook) initHook()
     }
+    
+    function element(compName, elComp) {
+        let el = root.querySelector(elComp.selector ?? elComp.$)
+        elementMap[compName] = el
 
-    function element(obj2) {
-        let el = document.querySelector(value)
-        elementMap[key] = el
-
-        for (let [key, value] of Object.entries(obj2)) {
+        for (let [key, value] of Object.entries(elComp)) {
             if (key === "text") {
                 key = "textContent"
             }
@@ -40,12 +44,13 @@ export function component(obj) {
             }
 
             switch (key) {
-                case "selector":
+                case "$":
+                case "$selector":
                     break
 
                 case "show":
                     useEffect(() => {
-                        const val = typeof value === "function" ? value(state) : value
+                        const val = isFunction(value) ? value(state) : value
                         if (val && el.style.display === "none") {
                             el.style.display = "block"
                         }
@@ -55,9 +60,31 @@ export function component(obj) {
                     })
                     break
 
+                case "value":
+                    useEffect(() => {
+                        const val = isFunction(value) ? value(state) : value
+                        if (el.value !== val) {
+                            el.value = val
+                        }
+                    })
+                    break
+
+                case "for":
+                    useEffect(() => {
+                        const val = isFunction(value) ? value(state) : value
+                        if (!val instanceof Array) {
+                            return
+                        }
+
+                        val.forEach(() => {
+                            el.parentElement.appendChild(el.content.cloneNode(true))
+                        })
+                    })
+                    break
+
                 default:
                      if (key.startsWith("on")) {
-                        if (typeof value !== "function") {
+                        if (!isFunction(value)) {
                             continue
                         }
                         el.addEventListener(key.slice(2).toLocaleLowerCase(), (e) => value(state, e, el))
@@ -66,7 +93,7 @@ export function component(obj) {
 
                     if (!key.startsWith("_")) {
                         useEffect(() => {
-                            const val = typeof value === "function" ? value(state) : value
+                            const val = isFunction(value) ? value(state) : value
                             if (el[key] !== val) {
                                 el[key] = val
                             }
@@ -74,24 +101,42 @@ export function component(obj) {
                     }
             }
         }
+
+        obj[compName].$element = el
     }
 
     function useEffect(callback) {
-        const stop = effect(callback)
+        const stop = effect(callback, {
+            scheduler: () => {
+                queueMicrotask(() => callback())
+            }
+        })
         effects.push(stop)
         return stop
     }
 
     function cleanup() {
+        cleanupHook()
         effects.forEach(stop => stop())
         effects = []
     }
 
-    init()
-
-    return () => {
-        cleanup()
+    if (!options || !options.noAutoInit) {
+        start()
     }
+
+    return {
+        init() {
+            start()
+        },
+        destroy() {
+            cleanup()
+        }
+    }
+}
+
+function isFunction(value) {
+    return typeof value === "function"
 }
 
 function isObject(value) {

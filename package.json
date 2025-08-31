@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "bundle": "esbuild test.js --bundle --outfile=script.js"
+    "bundle": "esbuild test.js --bundle --minify --outfile=script.js"
   },
   "repository": {
     "type": "git",
