@@ -1,3 +1,5 @@
+// This was taken from alpine 3. Thanks Alpine!
+
 let flushPending = false
 let flushing = false
 let queue = []
@@ -6,7 +8,7 @@ let lastFlushedIndex = -1
 export function scheduler (callback) { queueJob(callback) }
 
 function queueJob(job) {
-    if (! queue.includes(job)) queue.push(job)
+    if (!queue.includes(job)) queue.push(job)
 
     queueFlush()
 }
@@ -17,7 +19,7 @@ export function dequeueJob(job) {
 }
 
 function queueFlush() {
-    if (! flushing && ! flushPending) {
+    if (!flushing && !flushPending) {
         flushPending = true
 
         queueMicrotask(flushJobs)

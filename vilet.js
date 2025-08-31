@@ -1,4 +1,4 @@
-import { component } from "./elco";
+import { component, template } from "./component";
 import { computed, effect, reactive, watch } from "./reactivity";
 
 const V = {
@@ -7,7 +7,8 @@ const V = {
     computed,
     watch,
 
-    component
+    component,
+    template
 }
 
 export default V

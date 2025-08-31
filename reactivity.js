@@ -1,216 +1,147 @@
-// Globaler State für Dependency Tracking
-let currentEffect = null
-const targetMap = new WeakMap()
+let currentEffect = null;
+const targetMap = new WeakMap();
 
-/**
- * Dependency Tracking System
- * Verfolgt welche Effects von welchen Properties abhängen
- */
+// Track which effect is currently running
 function track(target, key) {
-    if (!currentEffect) return
+    if (!currentEffect) return;
     
-    let depsMap = targetMap.get(target)
+    let depsMap = targetMap.get(target);
     if (!depsMap) {
-        targetMap.set(target, (depsMap = new Map()))
+        targetMap.set(target, (depsMap = new Map()));
     }
     
-    let deps = depsMap.get(key)
-    if (!deps) {
-        depsMap.set(key, (deps = new Set()))
+    let dep = depsMap.get(key);
+    if (!dep) {
+        depsMap.set(key, (dep = new Set()));
     }
     
-    deps.add(currentEffect)
-    currentEffect.deps.add(deps)
+    dep.add(currentEffect);
 }
 
-/**
- * Trigger System
- * Führt alle Effects aus, die von einer Property abhängen
- */
+// Trigger all effects that depend on this property
 function trigger(target, key) {
-    const depsMap = targetMap.get(target)
-    if (!depsMap) return
+    const depsMap = targetMap.get(target);
+    if (!depsMap) return;
     
-    const effects = depsMap.get(key)
-    if (!effects) return
-    
-    // Kopiere Set um Modifikation während Iteration zu vermeiden
-    const effectsToRun = new Set(effects)
-    effectsToRun.forEach(effect => {
-        if (effect.scheduler) {
-            effect.scheduler()
-        } else {
-            effect.run()
-        }
-    })
+    const dep = depsMap.get(key);
+    if (dep) {
+        dep.forEach(effect => effect());
+    }
 }
 
-/**
- * Reactive Proxy Factory
- * Erstellt reactive Objekte mit automatischem Dependency Tracking
- */
-export function reactive(target) {
+// Create a reactive proxy for objects and arrays
+function reactive(target) {
+    if (typeof target !== "object" || target === null) {
+        return target;
+    }
+    
     if (target.__isReactive) {
-        return target
+        return target;
     }
     
     return new Proxy(target, {
         get(target, key, receiver) {
-            // Spezielle Marker für reactive Objects
-            if (key === '__isReactive') {
-                return true
+            if (key === "__isReactive") {
+                return true;
             }
             
-            const result = Reflect.get(target, key, receiver)
+            track(target, key);
             
-            // Track dependency für diesen Key
-            track(target, key)
+            const result = Reflect.get(target, key, receiver);
             
-            // Nested Objects auch reactive machen
-            if (isObject(result)) {
-                return reactive(result)
+            // Make nested objects reactive too
+            if (typeof result === "object" && result !== null) {
+                return reactive(result);
             }
             
-            return result
+            return result;
         },
         
         set(target, key, value, receiver) {
-            const oldValue = target[key]
-            const result = Reflect.set(target, key, value, receiver)
+            const oldValue = target[key];
+            const result = Reflect.set(target, key, value, receiver);
             
-            // Trigger nur wenn sich Wert geändert hat
-            if (oldValue !== value) {
-                trigger(target, key)
+            if (value !== oldValue) {
+                trigger(target, key);
+                
+                // For arrays, also trigger length changes
+                if (Array.isArray(target) && key !== "length") {
+                    trigger(target, "length");
+                }
             }
             
-            return result
+            return result;
         },
         
         deleteProperty(target, key) {
-            const result = Reflect.deleteProperty(target, key)
-            trigger(target, key)
-            return result
+            const result = Reflect.deleteProperty(target, key);
+            trigger(target, key);
+            return result;
         }
-    })
+    });
 }
 
-/**
- * Effect System
- * Führt Funktionen aus und trackt ihre Dependencies automatisch
- */
-class ReactiveEffect {
-    constructor(fn, scheduler = null) {
-        this.fn = fn
-        this.scheduler = scheduler
-        this.deps = new Set()
-        this.active = true
-    }
-    
-    run() {
-        if (!this.active) return
-        
-        let parent
-
+// Run a function and track its dependencies
+function effect(fn) {
+    const effectFn = () => {
+        const prevcurrentEffect = currentEffect;
+        currentEffect = effectFn;
         try {
-            // Cleanup alte Dependencies
-            this.cleanup()
-            
-            // Setze als aktuell laufenden Effect
-            parent = currentEffect
-            currentEffect = this
-            
-            // Führe Funktion aus (sammelt Dependencies automatisch)
-            return this.fn()
+            fn();
         } finally {
-            currentEffect = parent
+            currentEffect = prevcurrentEffect;
         }
-    }
+    };
     
-    cleanup() {
-        this.deps.forEach(dep => {
-            dep.delete(this)
-        })
-        this.deps.clear()
-    }
+    effectFn();
     
-    stop() {
-        if (this.active) {
-            this.cleanup()
-            this.active = false
-        }
-    }
+    return effectFn;
 }
 
-/**
- * Effect Function
- * Public API für das Erstellen von Effects
- */
-export function effect(fn, options = {}) {
-    const _effect = new ReactiveEffect(fn, options.scheduler)
+// Create a computed value that updates when dependencies change
+function computed(fn) {
+    let value;
+    let dirty = true;
     
-    // Führe sofort aus
-    _effect.run()
-    
-    // Return Funktion zum manuellen Stoppen
-    return () => _effect.stop()
-}
-
-/**
- * Computed Values
- * Cached reactive computations
- */
-export function computed(getter) {
-    let value
-    let dirty = true
-    
-    const runner = new ReactiveEffect(getter, () => {
-        // Scheduler: markiere als dirty wenn Dependencies sich ändern
-        dirty = true
-        trigger(computed, 'value')
-    })
-    
-    return new Proxy({}, {
-        get(target, key) {
-            if (key === 'value') {
-                if (dirty) {
-                    value = runner.run()
-                    dirty = false
-                }
-                track(computed, 'value')
-                return value
+    const computedRef = {
+        get value() {
+            if (dirty) {
+                value = fn();
+                dirty = false;
             }
+            track(computedRef, "value");
+            return value;
         }
-    })
-}
-
-/**
- * Watch Function
- * Überwacht specific Properties und reagiert auf Änderungen
- */
-export function watch(source, callback, options = {}) {
-    let oldValue
-    let getter
+    };
     
-    if (typeof source === 'function') {
-        getter = source
-    } else {
-        getter = () => source
-    }
-    
-    if (options.immediate) {
-        oldValue = getter()
-    }
-    
-    return effect(() => {
-        const newValue = getter()
+    // Mark dirty when dependencies change
+    effect(() => {
+        const prevDirty = dirty;
+        dirty = true;
         
-        if (oldValue !== newValue || options.deep) {
-            callback(newValue, oldValue)
-            oldValue = newValue
+        // If this is not the initial run, trigger dependents
+        if (!prevDirty) {
+            trigger(computedRef, "value");
         }
-    })
+        
+        // Access the function to track dependencies
+        fn();
+    });
+    
+    return computedRef;
 }
 
-function isObject(val) {
-    return val !== null && typeof val === 'object'
+// Watch for changes to a specific value
+function watch(getter, callback) {
+    let oldValue = getter();
+    
+    effect(() => {
+        const newValue = getter();
+        if (newValue !== oldValue) {
+            callback(newValue, oldValue);
+            oldValue = newValue;
+        }
+    });
 }
+
+export { reactive, effect, computed, watch };
