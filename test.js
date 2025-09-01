@@ -1,7 +1,7 @@
 import V from "./vilet";
 
 V.component({
-    $state: { count: 0 },
+    $ctx: { count: 0 },
     counter: {
         $: "#counter",
         onClick: (state) => state.count++,
@@ -10,7 +10,7 @@ V.component({
 })
 
 V.component({
-    $state: { showSecret: false },
+    $ctx: { showSecret: false },
     toggle: {
         $: "#toggle",
         onClick: (state) => state.showSecret = !state.showSecret
@@ -22,7 +22,7 @@ V.component({
 })
 
 V.component({
-    $state: { input: "" },
+    $ctx: { input: "" },
     input: {
         $: "#input",
         value: (state) => state.input,
@@ -39,42 +39,40 @@ V.component({
 })
 
 function TodoItem(content, onClick) {
-    return () => {
-        return V.template({
-            $: "template",
-            $state: { content },
-            li: {
-                $: "li",
-                text: (state) => state.content,
-                onClick: (state) => onClick(state.content)
-            }
-        })
-    }
+    return V.template({
+        $: "template",
+        $ctx: { content },
+        li: {
+            $: "li",
+            text: (ctx) => ctx.content,
+            onClick: (ctx) => onClick(ctx.content)
+        }
+    })
 }
 
 V.component({
-    $state: { input: "", todos: [] },
+    $ctx: { input: "", todos: [] },
     $root: "#list-example",
     input: {
         $: "input",
-        value: (state) => state.input,
-        onInput: (state, e) => state.input = e.target.value
+        value: (ctx) => ctx.input,
+        onInput: (ctx, e) => ctx.input = e.target.value
     },
     add: {
         $: "button",
-        onClick: (state) => {
-            state.todos.push(state.input)
-            state.input = ""
+        onClick: (ctx) => {
+            ctx.todos.push(ctx.input)
+            ctx.input = ""
         }
     },
     todos: {
         $: "ul",
-        $for: (state) => state.todos,
-        $item: (item, _, state) => {
+        $for: (ctx) => ctx.todos,
+        $item: (item, _, ctx) => {
             return TodoItem(
                 item,
                 (todo) => {
-                    state.todos = state.todos.filter(item => item !== todo)
+                    ctx.todos = ctx.todos.filter(item => item !== todo)
                 }
             )
         },

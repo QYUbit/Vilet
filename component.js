@@ -1,66 +1,80 @@
 import { bindElements } from "./binding"
 import { reactive } from "./reactivity"
 
-function setupComponent(config) {
-    let state = config.$state? reactive(config.$state) : reactive({})
-    if (state) config.$state = state
-
-    const root = config.$root? document.querySelector(config.$root): document
-    const cleanupFns = bindElements(config, root, state)
-    if (isFunction(config.$init)) config.$init()
-    return cleanupFns
-}
-
-export function component(config) {
+// Creates and runs a component. Returns ref.
+function component(config) {
     let cleanupFns = []
     let active = false
+    let context
 
     if (!config.$options) {
         config.$options = {}
     }
 
-    if (!config.$options.noAutoInit) {
-        active = true
-        cleanupFns = setupComponent(config)
-    }
-
     const componentRef = {
         init() {
             active = true
-            cleanupFns = setupComponent(config)
+
+            context = config.$ctx? reactive(config.$ctx) : reactive({})
+            if (context) config.$ctx = context
+            const root = config.$root? document.querySelector(config.$root): document
+
+            cleanupFns = bindElements(config, root, context)
+            if (isFunction(config.$init)) config.$init(context)
         },
+
         destroy() {
             active = false
-            if (isFunction(config.$cleanup)) config.$cleanup()
+            if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
+        },
+
+        get context() {
+            return context
         }
+    }
+
+    if (!config.$options.noAutoInit) {
+        componentRef.init()
     }
 
     return componentRef
 }
 
-export function template(config) {
+// Clones a template element and registers bindings. Returns ref.
+function template(config) {
     let cleanupFns = []
-    let active = true
-
-    let state = config.$state? reactive(config.$state) : reactive({})
-    config.$state = state
-
-    let root = config.$root? document.querySelector(config.$root): document
-    root = root.querySelector(config.$template ?? config.$).content.cloneNode(true)
-
-    cleanupFns = bindElements(config, root, state)
-
-    if (isFunction(config.$init)) config.$init()
+    let active = false
+    let root
+    let context
 
     const templateRef = {
+        init() {
+            active = true
+
+            context = config.$ctx? reactive(config.$ctx) : reactive({})
+            config.$ctx = context
+
+            root = config.$root? document.querySelector(config.$root): document
+            root = root.querySelector(config.$template ?? config.$).content.cloneNode(true)
+
+            cleanupFns = bindElements(config, root, context)
+            if (isFunction(config.$init)) config.$init(context)
+        },
+
         mount(el) {
             el.appendChild(root)
+            if (isFunction(config.$mount)) config.$mount(context)
         },
+
         destroy() {
             active = false
-            if (isFunction(config.$cleanup)) config.$cleanup()
+            if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
+        },
+
+        get context() {
+            return context
         }
     }
 
@@ -74,3 +88,5 @@ function isFunction(value) {
 function isObject(value) {
     return typeof value === "object" && value !== null
 }
+
+export { component, template }
