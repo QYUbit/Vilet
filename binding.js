@@ -1,62 +1,79 @@
 import { effect } from "./reactivity"
 
 export function bindProp(el, props, key, context) {
-    let templateCleanups = []
+    let forCleanups = []
+    let templateCleanup = null
 
     const value = props[key]
 
     switch (key) {
         case "show":
             return effect(() => {
-                const val = isFunction(value) ? value(context) : value
-                el.style.display = val ? "block" : "none"
+                const shouldShow = ensureValue(value, context)
+                el.style.display = shouldShow ? "block" : "none"
             })
         case "value":
             return effect(() => {
-                const val = isFunction(value) ? value(context) : value
+                const val = ensureValue(value, context)
                 if (el.value !== val) el.value = val
             })
         case "$for":
             return effect(() => {
-                templateCleanups.forEach(fn => fn())
-                templateCleanups = []
+                forCleanups.forEach(fn => fn())
+                forCleanups = []
                 el.innerHTML = ""
 
-                const val = isFunction(value) ? value(context) : value
-                val.forEach((item, i) => {
-                    const ref = isFunction(props["$item"]) ? props["$item"](item, i, context) : props["$item"]
+                const arr = ensureValue(value, context)
+                arr.forEach((item, i) => {
+                    const ref = ensureValue(props["$each"], context, item, i)
                     ref.init()
                     ref.mount(el)
-                    templateCleanups.push(ref.destroy)
+                    forCleanups.push(ref.destroy)
                 });
             })
-        case "$item":
+        case "$each":
             break
+        case "$template":
+            if (templateCleanup) templateCleanup()
+            templateCleanup = null
+            el.innerHTML = ""
+
+            return effect(() => {
+                const ref = ensureValue(value, context)
+                ref.init()
+                ref.mount(el)
+                templateCleanup = ref.destroy
+            })
         default:
             if (key.startsWith("on") && isFunction(value)) {
                 el.addEventListener(key.slice(2).toLowerCase(), e => value(context, e, el))
                 return () => el.removeEventListener(key.slice(2).toLowerCase(), value)
             }
+
             if (!key.startsWith("_")) {
+                key = (key === "text" ? "textContent" : key === "html"? "innerHTML": key)
+
                 return effect(() => {
-                    const val = isFunction(value) ? value(context) : value
-                    el[key === "text"? "textContent": key === "html"? "innerHTML": key] = val
+                    const val = ensureValue(value, context)
+                    if (el[key] !== val) el[key] = val
                 })
             }
     }
 }
 
 export function bindElements(config, root, context) {
-    //const elementMap = {}
     const cleanupFns = []
 
     for (const [key, value] of Object.entries(config)) {
         if (key === "$" || key === "$selector" || key.startsWith("_")) continue
-        if (!isObject(value) || (!value.selector && !value.$)) continue
+        if (!isObject(value) || (!value.selector && !value.$ && !interpretAsQuery(key))) continue
 
-        const el = root.querySelector(value.$selector ?? value.$)
-        //elementMap[key] = el
-        //config[key].$element = el
+        let el
+        if (interpretAsQuery(key)) {
+            el = root.querySelector(key)
+        } else {
+            el = root.querySelector(value.$selector ?? value.$)
+        }
 
         for (const prop in value) {
             const cleanup = bindProp(el, value, prop, context)
@@ -64,8 +81,15 @@ export function bindElements(config, root, context) {
         }
     }
 
-    //config.$elements = elementMap
     return cleanupFns
+}
+
+function ensureValue(value, ...args) {
+    return isFunction(value) ? value(...args) : value
+}
+
+function interpretAsQuery(key) {
+    return key.startsWith(".") || key.startsWith("#") || key.startsWith("[")
 }
 
 function isFunction(value) {

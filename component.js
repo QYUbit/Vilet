@@ -27,6 +27,7 @@ function component(config) {
             active = false
             if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
+            cleanupFns = []
         },
 
         get context() {
@@ -56,7 +57,7 @@ function template(config) {
             config.$ctx = context
 
             root = config.$root? document.querySelector(config.$root): document
-            root = root.querySelector(config.$template ?? config.$).content.cloneNode(true)
+            root = root.querySelector(config.$selector ?? config.$).content.cloneNode(true)
 
             cleanupFns = bindElements(config, root, context)
             if (isFunction(config.$init)) config.$init(context)
@@ -71,6 +72,7 @@ function template(config) {
             active = false
             if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
+            cleanupFns = []
         },
 
         get context() {
@@ -83,10 +85,6 @@ function template(config) {
 
 function isFunction(value) {
     return typeof value === "function"
-}
-
-function isObject(value) {
-    return typeof value === "object" && value !== null
 }
 
 export { component, template }

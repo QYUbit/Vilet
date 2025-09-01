@@ -2,8 +2,7 @@ import V from "./vilet";
 
 V.component({
     $ctx: { count: 0 },
-    counter: {
-        $: "#counter",
+    "#counter": {
         onClick: (state) => state.count++,
         text: (state) => `Count: ${state.count}`
     }
@@ -11,29 +10,24 @@ V.component({
 
 V.component({
     $ctx: { showSecret: false },
-    toggle: {
-        $: "#toggle",
+    "#toggle": {
         onClick: (state) => state.showSecret = !state.showSecret
     },
-    secret: {
-        $: "#secret",
+    "#secret": {
         show: (state) => state.showSecret
     }
 })
 
 V.component({
     $ctx: { input: "" },
-    input: {
-        $: "#input",
+    "#input": {
         value: (state) => state.input,
         onInput: (state, e) => state.input = e.target.value
     },
-    output: {
-        $: "#output",
+    "#output": {
         text: (state) => `Your input: ${state.input}`
     },
-    reset: {
-        $: "#reset",
+    "#reset": {
         onClick: (state) => state.input = ""
     }
 })
@@ -68,7 +62,7 @@ V.component({
     todos: {
         $: "ul",
         $for: (ctx) => ctx.todos,
-        $item: (item, _, ctx) => {
+        $each: (ctx, item) => {
             return TodoItem(
                 item,
                 (todo) => {
