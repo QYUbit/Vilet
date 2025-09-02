@@ -46,8 +46,9 @@ function component(config) {
 function template(config) {
     let cleanupFns = []
     let active = false
-    let root
+    let clone
     let context
+    let mounted = []
 
     const templateRef = {
         init() {
@@ -56,16 +57,29 @@ function template(config) {
             context = config.$ctx? reactive(config.$ctx) : reactive({})
             config.$ctx = context
 
-            root = config.$root? document.querySelector(config.$root): document
-            root = root.querySelector(config.$selector ?? config.$).content.cloneNode(true)
+            const root = config.$root ? document.querySelector(config.$root) : document
+            clone = root.querySelector(config.$selector ?? config.$).content.cloneNode(true)
 
-            cleanupFns = bindElements(config, root, context)
+            cleanupFns = bindElements(config, clone, context)
             if (isFunction(config.$init)) config.$init(context)
         },
 
         mount(el) {
-            el.appendChild(root)
+            mounted = Array.from(clone.childNodes)
+            el.appendChild(clone)
             if (isFunction(config.$mount)) config.$mount(context)
+        },
+
+        unmount(el) {
+            mounted.forEach((element) => {
+                if (element.parentNode === el) {
+                    el.removeChild(element)
+                }
+            })
+            
+            mountedElements = []
+
+            if (isFunction(config.$unmount)) config.$unmount(context)
         },
 
         destroy() {

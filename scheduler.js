@@ -12,11 +12,6 @@ function queueJob(job) {
 
     queueFlush()
 }
-export function dequeueJob(job) {
-    let index = queue.indexOf(job)
-
-    if (index !== -1 && index > lastFlushedIndex) queue.splice(index, 1)
-}
 
 function queueFlush() {
     if (!flushing && !flushPending) {

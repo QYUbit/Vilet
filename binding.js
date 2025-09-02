@@ -1,9 +1,6 @@
 import { effect } from "./reactivity"
 
 export function bindProp(el, props, key, context) {
-    let forCleanups = []
-    let templateCleanup = null
-
     const value = props[key]
 
     switch (key) {
@@ -18,27 +15,51 @@ export function bindProp(el, props, key, context) {
                 if (el.value !== val) el.value = val
             })
         case "$for":
+            let templates = {}
+ 
             return effect(() => {
-                forCleanups.forEach(fn => fn())
-                forCleanups = []
-                el.innerHTML = ""
-
+                // Genrate keys for new array
                 const arr = ensureValue(value, context)
-                arr.forEach((item, i) => {
-                    const ref = ensureValue(props["$each"], context, item, i)
-                    ref.init()
-                    ref.mount(el)
-                    forCleanups.push(ref.destroy)
-                });
+                const newKeys = arr.map((item, i) => ensureValue(props.$key, context, item, i) ?? JSON.stringify(item))
+
+                // Filter out and delete templates
+                templates = Object.keys(templates)
+                .filter((key) => {
+                    if (newKeys.includes(key)) {
+                        return true
+                    } else {
+                        templates[key].unmount(el)
+                        templates[key].destroy()
+                        return false
+                    }
+                })
+                .reduce((obj, key) => {
+                    obj[key] = templates[key]
+                    return obj
+                }, {})
+
+                // Generate new templates
+                newKeys.forEach((key, i) => {
+                    if (!Object.keys(templates).includes(key)) {
+                        const ref = ensureValue(props.$each, context, arr[i], i)
+                        ref.init()
+                        ref.mount(el)
+                        templates[key] = ref
+                    }
+                })
+
+                // ? Ensure elements are in right order ?
             })
         case "$each":
+        case "$key":
             break
         case "$template":
-            if (templateCleanup) templateCleanup()
-            templateCleanup = null
-            el.innerHTML = ""
-
+            let templateCleanup = null
+            
             return effect(() => {
+                if (templateCleanup) templateCleanup()
+                el.innerHTML = ""
+
                 const ref = ensureValue(value, context)
                 ref.init()
                 ref.mount(el)
