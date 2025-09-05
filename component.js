@@ -77,7 +77,7 @@ function template(config) {
                 }
             })
             
-            mountedElements = []
+            mounted = []
 
             if (isFunction(config.$unmount)) config.$unmount(context)
         },
@@ -91,6 +91,10 @@ function template(config) {
 
         get context() {
             return context
+        },
+
+        get mounted() {
+            return mounted
         }
     }
 

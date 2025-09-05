@@ -16,31 +16,40 @@ export function bindProp(el, props, key, context) {
             })
         case "$for":
             let templates = {}
- 
-            return effect(() => {
-                // Genrate keys for new array
-                const arr = ensureValue(value, context)
-                const newKeys = arr.map((item, i) => ensureValue(props.$key, context, item, i) ?? JSON.stringify(item))
+            let itemKeyMap = new WeakMap()
+            let keyCounter = 0
 
-                // Filter out and delete templates
-                templates = Object.keys(templates)
-                .filter((key) => {
-                    if (newKeys.includes(key)) {
-                        return true
+            return effect(() => {
+                // Generate keys for new array
+                const arr = ensureValue(value, context)
+                const newKeys = arr.map((item, i) => {
+                    if (props.$key) {
+                        return ensureValue(props.$key, context, item, i)
+                    }
+                    
+                    if (typeof item === "object" && item !== null) {
+                        if (!itemKeyMap.has(item)) {
+                            itemKeyMap.set(item, `obj_${keyCounter++}`)
+                        }
+                        return itemKeyMap.get(item)
                     } else {
-                        templates[key].unmount(el)
-                        templates[key].destroy()
-                        return false
+                        return `${item}_${i}`
                     }
                 })
-                .reduce((obj, key) => {
-                    obj[key] = templates[key]
-                    return obj
-                }, {})
 
-                // Generate new templates
+                // Filter out and delete templates that are no longer needed
+                const existingKeys = Object.keys(templates)
+                const keysToRemove = existingKeys.filter(key => !newKeys.includes(key))
+                
+                keysToRemove.forEach(key => {
+                    templates[key].unmount(el)
+                    templates[key].destroy()
+                    delete templates[key]
+                })
+
+                // Generate new templates for new keys
                 newKeys.forEach((key, i) => {
-                    if (!Object.keys(templates).includes(key)) {
+                    if (!templates[key]) {
                         const ref = ensureValue(props.$each, context, arr[i], i)
                         ref.init()
                         ref.mount(el)
@@ -48,8 +57,27 @@ export function bindProp(el, props, key, context) {
                     }
                 })
 
-                // ? Ensure elements are in right order ?
+                // Ensure elements are in right order
+                newKeys.forEach((key, index) => {
+                    const template = templates[key]
+                    if (template && template.mounted && template.mounted.length > 0) {
+                        const firstElement = template.mounted[0]
+                        const targetPosition = index
+                        const currentPosition = Array.from(el.children).indexOf(firstElement)
+                        
+                        if (currentPosition !== targetPosition && currentPosition !== -1) {
+                            template.mounted.forEach(element => {
+                                if (targetPosition >= el.children.length) {
+                                    el.appendChild(element)
+                                } else {
+                                    el.insertBefore(element, el.children[targetPosition])
+                                }
+                            })
+                        }
+                    }
+                })
             })
+
         case "$each":
         case "$key":
             break
