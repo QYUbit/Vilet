@@ -9,4 +9,7 @@
 
 import V from "./vilet"
 
+import { initBindings } from "./bindings"
+initBindings()
+
 export default V

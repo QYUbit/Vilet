@@ -1,4 +1,4 @@
-import { bindElements } from "./binding"
+import { bindElements } from "./bind"
 import { reactive } from "./reactivity"
 
 // Creates and runs a component. Returns ref.

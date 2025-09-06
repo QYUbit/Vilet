@@ -1,4 +1,4 @@
-import V from "./vilet";
+import V from "./index";
 
 V.component({
     $ctx: { count: 0 },

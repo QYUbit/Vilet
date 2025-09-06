@@ -1,87 +1,51 @@
+import { registerBinding } from "./bind"
 import { effect } from "./reactivity"
 
-export function bindElements(config, root, context) {
-    const cleanupFns = []
+export function initBindings() {
+    registerBinding("$text", (el, context, bind) => {
+        effect(() => {
+            const val = ensureValue(bind, context, el)
+            if (el.textContent !== String(val)) {
+                el.textContent = String(val)
+            }
+        })
+    })
 
-    for (const [key, value] of Object.entries(config)) {
-        if (key === "$" || key === "$selector" || key.startsWith("_")) continue
-        if (!isObject(value) || (!value.selector && !value.$ && !value.$el && !interpretAsQuery(key))) continue
+    registerBinding("$show", (el, context, bind) => {
+        effect(() => {
+            const shouldShow = ensureValue(bind, context, el)
+            el.style.display = shouldShow ? "block" : "none"
+        })
+    })
 
-        let el
-        if (value.$el) {
-            el = value.$el
-        } else if (interpretAsQuery(key)) {
-            el = root.querySelector(key)
+    registerBinding("$model", (el, context, bind) => {
+        if (typeof bind === "string") {
+            return bindModel(el, context, bind) 
         } else {
-            el = root.querySelector(value.$selector ?? value.$)
+            return bindValidationModel(el, context, bind)
         }
+    })
 
-        for (const prop in value) {
-            const cleanup = bindProp(el, value, prop, context)
-            if (isFunction(cleanup)) cleanupFns.push(cleanup)
-        }
-    }
+    registerBinding("$template", (el, context, bind) => {
+        let templateCleanup = null
+                
+        return effect(() => {
+            if (templateCleanup) templateCleanup()
+            el.innerHTML = ""
 
-    return cleanupFns
+            const ref = ensureValue(bind, context, el)
+            ref.init()
+            ref.mount(el)
+            templateCleanup = ref.destroy
+        })
+    })
+
+    registerBinding("$for", bindFor)
+    registerBinding("$each", () => {})
+    registerBinding("$key", () => {})
 }
 
-export function bindProp(el, props, key, context) {
-    const value = props[key]
-
-    switch (key) {
-        case "$text":
-            return effect(() => {
-                const val = ensureValue(value, context, el)
-                if (el.textContent !== String(val)) {
-                    el.textContent = String(val)
-                }
-            })
-        case "$show":
-            return effect(() => {
-                const shouldShow = ensureValue(value, context, el)
-                el.style.display = shouldShow ? "block" : "none"
-            })
-        case "$model":
-            if (typeof value === "string") {
-                return bindModel(el, value, context) 
-            } else {
-                return bindValidationModel(el, value, context)
-            }
-
-        case "$for":
-            return bindFor(el, props, value, context)
-
-        case "$each":
-        case "$key":
-            break
-        case "$template":
-            let templateCleanup = null
-            
-            return effect(() => {
-                if (templateCleanup) templateCleanup()
-                el.innerHTML = ""
-
-                const ref = ensureValue(value, context, el)
-                ref.init()
-                ref.mount(el)
-                templateCleanup = ref.destroy
-            })
-        default:
-            if (key.startsWith("on") && isFunction(value)) {
-                el.addEventListener(key.slice(2).toLowerCase(), e => value(context, e, el))
-                return () => el.removeEventListener(key.slice(2).toLowerCase(), value)
-            }
-
-            if (!key.startsWith("_")) {
-                return effect(() => {
-                    const val = ensureValue(value, context, el)
-                    if (el[key] !== val) el[key] = val
-                })
-            }
-    }
-}
-
-function bindModel(el, ctxRef, context) {
+function bindModel(el, context, ctxRef) {
     const path = typeof ctxRef === "string" ? ctxRef.split(".") : [ctxRef]
     
     // Context -> DOM
@@ -129,7 +93,7 @@ function bindModel(el, ctxRef, context) {
     }
 }
 
-function bindValidationModel(el, modelConfig, context) {
+function bindValidationModel(el, context, modelConfig) {
     const { path, validate, transform } = modelConfig
     const parts = path.split('.')
     
@@ -199,15 +163,14 @@ function getModelEventType(el) {
     }
 }
 
-
-function bindFor(el, props, value, context) {
+function bindFor(el, context, bind, props) {
     let templates = {}
     let itemKeyMap = new WeakMap()
     let keyCounter = 0
 
     return effect(() => {
         // Generate keys for new array
-        const arr = ensureValue(value, context)
+        const arr = ensureValue(bind, context)
         const newKeys = arr.map((item, i) => {
             if (props.$key) {
                 return ensureValue(props.$key, context, item, i, el)
@@ -266,17 +229,5 @@ function bindFor(el, props, value, context) {
 }
 
 function ensureValue(value, ...args) {
-    return isFunction(value) ? value(...args) : value
-}
-
-function interpretAsQuery(key) {
-    return key.startsWith(".") || key.startsWith("#") || key.startsWith("[")
-}
-
-function isFunction(value) {
-    return typeof value === "function"
-}
-
-function isObject(value) {
-    return typeof value === "object" && value !== null
+    return typeof value === "function" ? value(...args) : value
 }
