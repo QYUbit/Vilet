@@ -1,3 +1,4 @@
 /node_modules
-index.html
+*.html
+*css
 script.js

@@ -1,5 +1,10 @@
 # Todo
 
-- cleaner
+- code quality
 - feedback (errors, warnings, type checking)
-- utility bindings (e.g. style, classList)
+- smart bindings (e.g. style, classList)
+- plugins
+    - http
+    - animation
+    - elment observers
+- codebais structure

@@ -28,6 +28,7 @@ function component(config) {
             if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
             cleanupFns = []
+            context = null
         },
 
         get context() {
@@ -87,6 +88,8 @@ function template(config) {
             if (isFunction(config.$cleanup)) config.$cleanup(context)
             cleanupFns.forEach(fn => fn())
             cleanupFns = []
+            context = null
+            clone = null
         },
 
         get context() {

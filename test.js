@@ -3,32 +3,43 @@ import V from "./vilet";
 V.component({
     $ctx: { count: 0 },
     "#counter": {
-        onClick: (state) => state.count++,
-        text: (state) => `Count: ${state.count}`
+        onClick: (ctx) => ctx.count++,
+        $text: (ctx) => `Count: ${ctx.count}`
     }
 })
 
 V.component({
     $ctx: { showSecret: false },
     "#toggle": {
-        onClick: (state) => state.showSecret = !state.showSecret
+        onClick: (ctx) => ctx.showSecret = !ctx.showSecret
     },
     "#secret": {
-        show: (state) => state.showSecret
+        $show: (ctx) => ctx.showSecret
     }
 })
 
 V.component({
     $ctx: { input: "" },
     "#input": {
-        value: (state) => state.input,
-        onInput: (state, e) => state.input = e.target.value
+        $model: "input"
     },
     "#output": {
-        text: (state) => `Your input: ${state.input}`
+        $text: (ctx) => `Your input: ${ctx.input}`
     },
     "#reset": {
-        onClick: (state) => state.input = ""
+        onClick: (ctx) => ctx.input = ""
+    }
+})
+
+V.component({
+    $ctx: { username: "" },
+    $root: "#validation-example",
+    "#input": {
+        $model: {
+            path: "username",
+            validate: (username) => username.length > 3 && username.length < 8,
+            transform: (username) => username.toUpperCase().trim()
+        }
     }
 })
 
@@ -38,7 +49,7 @@ function TodoItem(content, onClick) {
         $ctx: { content },
         li: {
             $: "li",
-            text: (ctx) => ctx.content,
+            $text: (ctx) => ctx.content,
             onClick: (ctx) => onClick(ctx.content)
         }
     })
