@@ -43,10 +43,10 @@ export function bindProp(el, props, key, context) {
         return () => el.removeEventListener(key.slice(2).toLowerCase(), value)
     }
     
-    if (!key.startsWith("_")) {
+    if (!key.startsWith("_") && !key.startsWith("$")) {
         return effect(() => {
             const val = ensureValue(value, context, el)
-            if (el[key] !== val) el[key] = val
+            if (el.getAttribute(key) !== val) el.setAttribute(key, val)
         })
     }
 }

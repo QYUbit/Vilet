@@ -43,6 +43,22 @@ V.component({
     }
 })
 
+V.component({
+    $ctx: { classB: false, borderColor: "" },
+    "#smart-example button": {
+        onClick: (ctx) => {
+            ctx.classB = true
+            ctx.borderColor = "blue"
+        },
+        $class: {
+            "class-b": (ctx) => ctx.classB
+        },
+        $style: {
+            borderColor: (ctx) => ctx.borderColor
+        }
+    }
+})
+
 function TodoItem(content, onClick) {
     return V.template({
         $: "template",

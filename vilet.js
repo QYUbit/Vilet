@@ -1,3 +1,4 @@
+import { registerBinding } from "./bind";
 import { component, template } from "./component";
 import { computed, effect, reactive, watch } from "./reactivity";
 
@@ -8,7 +9,9 @@ const V = {
     watch,
 
     component,
-    template
+    template,
+
+    registerBinding
 }
 
 export default V

@@ -2,38 +2,41 @@ import { registerBinding } from "./bind"
 import { effect } from "./reactivity"
 
 export function initBindings() {
-    registerBinding("$text", (el, context, bind) => {
+    registerBinding("$text", (el, ctx, bind) => {
         effect(() => {
-            const val = ensureValue(bind, context, el)
+            const val = ensureValue(bind, ctx, el)
             if (el.textContent !== String(val)) {
                 el.textContent = String(val)
             }
         })
     })
 
-    registerBinding("$show", (el, context, bind) => {
+    registerBinding("$show", (el, ctx, bind) => {
         effect(() => {
-            const shouldShow = ensureValue(bind, context, el)
+            const shouldShow = ensureValue(bind, ctx, el)
             el.style.display = shouldShow ? "block" : "none"
         })
     })
 
-    registerBinding("$model", (el, context, bind) => {
+    registerBinding("$class", bindClass)
+    registerBinding("$style", bindStyle)
+
+    registerBinding("$model", (el, ctx, bind) => {
         if (typeof bind === "string") {
-            return bindModel(el, context, bind) 
+            return bindModel(el, ctx, bind) 
         } else {
-            return bindValidationModel(el, context, bind)
+            return bindValidationModel(el, ctx, bind)
         }
     })
 
-    registerBinding("$template", (el, context, bind) => {
+    registerBinding("$template", (el, ctx, bind) => {
         let templateCleanup = null
                 
         return effect(() => {
             if (templateCleanup) templateCleanup()
             el.innerHTML = ""
 
-            const ref = ensureValue(bind, context, el)
+            const ref = ensureValue(bind, ctx, el)
             ref.init()
             ref.mount(el)
             templateCleanup = ref.destroy
@@ -43,6 +46,87 @@ export function initBindings() {
     registerBinding("$for", bindFor)
     registerBinding("$each", () => {})
     registerBinding("$key", () => {})
+}
+
+function bindClass(el, context, bind) {
+    if (!el._originalClasses) {
+        el._originalClasses = new Set(el.classList)
+    }
+    
+    return effect(() => {
+        const dynamicClasses = ensureValue(bind, context)
+        
+        if (el._viletClasses) {
+            el._viletClasses.forEach(cls => el.classList.remove(cls))
+        }
+        
+        const newClasses = new Set()
+        
+        if (typeof dynamicClasses === "string") {
+            dynamicClasses.split(/\s+/).forEach(cls => {
+                if (cls) newClasses.add(cls)
+            })
+        } else if (typeof dynamicClasses === "object") {
+            Object.entries(dynamicClasses).forEach(([className, condition]) => {
+                if (ensureValue(condition, context)) {
+                    newClasses.add(className)
+                }
+            })
+        } else if (Array.isArray(dynamicClasses)) {
+            dynamicClasses.forEach(cls => {
+                if (typeof cls === "string") {
+                    newClasses.add(cls)
+                } else if (typeof cls === "object") {
+                    Object.entries(cls).forEach(([className, condition]) => {
+                        if (ensureValue(condition, context)) {
+                            newClasses.add(className)
+                        }
+                    })
+                }
+            })
+        }
+        
+        newClasses.forEach(cls => el.classList.add(cls))
+        
+        el._viletClasses = newClasses
+    })
+}
+
+function bindStyle(el, context, bind) {
+    if (!el._originalStyle) {
+        el._originalStyle = el.getAttribute("style") || ""
+    }
+    
+    return effect(() => {
+        const dynamicStyles = ensureValue(bind, context)
+        
+        if (el._viletStyles) {
+            Object.keys(el._viletStyles).forEach(prop => {
+                el.style.removeProperty(prop)
+            })
+        }
+        
+        if (el._originalStyle) {
+            el.setAttribute("style", el._originalStyle)
+        } else {
+            el.removeAttribute("style")
+        }
+        
+        const newStyles = {}
+        
+        if (typeof dynamicStyles === "object") {
+            Object.entries(dynamicStyles).forEach(([property, bind]) => {
+                const finalValue = ensureValue(bind, context)
+                if (finalValue != null) {
+                    const cssProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase()
+                    el.style.setProperty(cssProperty, String(finalValue))
+                    newStyles[cssProperty] = finalValue
+                }
+            })
+        }
+        
+        el._viletStyles = newStyles
+    })
 }
 
 function bindModel(el, context, ctxRef) {
@@ -95,16 +179,16 @@ function bindModel(el, context, ctxRef) {
 
 function bindValidationModel(el, context, modelConfig) {
     const { path, validate, transform } = modelConfig
-    const parts = path.split('.')
+    const parts = path.split(".")
     
     // Context -> DOM
     effect(() => {
         const currentValue = getNestedValue(context, parts)
-        el.value = String(currentValue || '')
+        el.value = String(currentValue || "")
         
-        el.classList.remove('valid', 'invalid')
+        el.classList.remove("valid", "invalid")
         if (currentValue && validate) {
-            el.classList.add(validate(currentValue) ? 'valid' : 'invalid')
+            el.classList.add(validate(currentValue) ? "valid" : "invalid")
         }
     })
     
@@ -118,21 +202,21 @@ function bindValidationModel(el, context, modelConfig) {
         
         if (!validate || validate(value)) {
             setNestedValue(context, parts, value)
-            el.classList.remove('invalid')
-            el.classList.add('valid')
+            el.classList.remove("invalid")
+            el.classList.add("valid")
         } else {
             setNestedValue(context, parts, value)
-            el.classList.remove('valid')
-            el.classList.add('invalid')
+            el.classList.remove("valid")
+            el.classList.add("invalid")
         }
     }
     
-    el.addEventListener('input', domEvent)
-    el.addEventListener('blur', domEvent)
+    el.addEventListener("input", domEvent)
+    el.addEventListener("blur", domEvent)
     
     return () => {
-        el.removeEventListener('input', domEvent)
-        el.removeEventListener('blur', domEvent)
+        el.removeEventListener("input", domEvent)
+        el.removeEventListener("blur", domEvent)
     }
 }
 
