@@ -1,9 +1,9 @@
 # Todo
 
-- code quality
+- code quality?
 - feedback (errors, warnings, type checking)
 - plugins
     - http
     - animation
     - elment observers
-- codebais structure
+- multiple element refs

@@ -1,5 +1,5 @@
 import { registerBinding } from "./bind";
-import { component, template } from "./component";
+import { component, registerDirective, template } from "./component";
 import { computed, effect, reactive, watch } from "./reactivity";
 import { scheduler } from "./scheduler";
 
@@ -10,10 +10,10 @@ const V = {
     watch,
     scheduler,
 
-
     component,
     template,
 
+    registerDirective,
     registerBinding,
     use
 }

@@ -1,4 +1,4 @@
-export default function(V) {
+export default function model(V) {
     V.registerBinding("$model", (el, ctx, bind) => {
         if (typeof bind === "string") {
             return bindModel(V, el, ctx, bind) 

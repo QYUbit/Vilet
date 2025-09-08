@@ -4,8 +4,8 @@ export function bindElements(config, root, context) {
     const cleanupFns = []
 
     for (const [key, value] of Object.entries(config)) {
-        if (key === "$" || key === "$selector" || key.startsWith("_")) continue
-        if (!isObject(value) || (!value.selector && !value.$ && !value.$el && !interpretAsQuery(key))) continue
+        if (!key.startsWith("$") && key.startsWith("_")) continue
+        if (!value.selector && !value.$ && !value.$el && !interpretAsQuery(key)) continue
 
         let el
         if (value.$el) {
@@ -25,7 +25,7 @@ export function bindElements(config, root, context) {
     return cleanupFns
 }
 
-let specialBindings = {}
+const specialBindings = {}
 
 export function registerBinding(name, handler) {
     specialBindings[name] = handler
@@ -61,8 +61,4 @@ function ensureValue(value, ...args) {
 
 function isFunction(value) {
     return typeof value === "function" && value !== null
-}
-
-function isObject(value) {
-    return typeof value === "object" && value !== null
 }

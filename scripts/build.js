@@ -1,7 +1,7 @@
 import esbuild from "esbuild"
 import fs from "node:fs"
 
-const packages = ["core", "model"]
+const packages = ["core", "model", "store"]
 
 packages.forEach((_package) => {
     if (!fs.existsSync(`./packages/${_package}/dist`)) {
@@ -28,10 +28,23 @@ packages.forEach((_package) => {
         bundle: true,
         minify: true,
         platform: "browser",
-    }).catch(handleBuildError)
+    })
+    .then(() => outputSize(_package, `./packages/${_package}/dist/cdn.min.js`))
+    .catch(handleBuildError)
 })
 
 function handleBuildError(err) {
     console.log(err)
     process.exit(1)
+}
+
+function outputSize(_package, file) {
+    const size = bytesToSize(fs.readFileSync(file).length)
+    console.log(`${_package}: ${size}`)
+}
+
+function bytesToSize(bytes) {
+    if (bytes === 0) return "0 KB";
+    const kb = bytes / 1024;
+    return `${kb.toFixed(1)} KB`;
 }

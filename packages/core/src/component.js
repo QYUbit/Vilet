@@ -1,6 +1,12 @@
 import { bindElements } from "./bind"
 import { reactive } from "./reactivity"
 
+const componentDirectives = {}
+
+export function registerDirective(name, handler) {
+    componentDirectives[name] = handler
+}
+
 // Creates and runs a component. Returns ref.
 export function component(config) {
     let cleanupFns = []
@@ -18,6 +24,12 @@ export function component(config) {
             context = config.$ctx? reactive(config.$ctx) : reactive({})
             if (context) config.$ctx = context
             const root = config.$root? document.querySelector(config.$root): document
+
+            Object.entries(componentDirectives).forEach(([name, handler]) => {
+                if (name in config) {
+                    handler(config[name], context, config)
+                }
+            })
 
             cleanupFns = bindElements(config, root, context)
             if (isFunction(config.$init)) config.$init(context)
@@ -60,6 +72,12 @@ export function template(config) {
 
             const root = config.$root ? document.querySelector(config.$root) : document
             clone = root.querySelector(config.$selector ?? config.$).content.cloneNode(true)
+
+            Object.entries(componentDirectives).forEach(([name, handler]) => {
+                if (name in config) {
+                    handler(config[name], context, config, clone)
+                }
+            })
 
             cleanupFns = bindElements(config, clone, context)
             if (isFunction(config.$init)) config.$init(context)
