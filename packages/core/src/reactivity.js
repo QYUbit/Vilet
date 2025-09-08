@@ -121,9 +121,9 @@ function cleanup(effect) {
 }
 
 // Run a function and track its dependencies
-function effect(fn) {
+function effect(fn, schedule = true) {
     const effectFn = () => {
-        scheduler(() => {
+        const run = () => {
             cleanup(effectFn)
             const prevCurrentEffect = currentEffect
             currentEffect = effectFn
@@ -132,11 +132,17 @@ function effect(fn) {
             } finally {
                 currentEffect = prevCurrentEffect
             }
-        })
+        }
+
+        if (schedule) {
+            scheduler(run)
+        } else {
+            run()
+        }
     }
-    
+
     effectFn()
-    
+
     return effectFn
 }
 

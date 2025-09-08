@@ -2,7 +2,7 @@ import { bindElements } from "./bind"
 import { reactive } from "./reactivity"
 
 // Creates and runs a component. Returns ref.
-function component(config) {
+export function component(config) {
     let cleanupFns = []
     let active = false
     let context
@@ -44,7 +44,7 @@ function component(config) {
 }
 
 // Clones a template element and registers bindings. Returns ref.
-function template(config) {
+export function template(config) {
     let cleanupFns = []
     let active = false
     let clone
@@ -107,5 +107,3 @@ function template(config) {
 function isFunction(value) {
     return typeof value === "function"
 }
-
-export { component, template }

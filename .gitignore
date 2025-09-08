@@ -1,4 +1,3 @@
-/node_modules
-*.html
-*css
-script.js
+node_modules/
+dist/
+dev_test/
