@@ -2,8 +2,5 @@
 
 - code quality?
 - feedback (errors, warnings, type checking)
-- plugins
-    - http
-    - animation
-    - elment observers
+- http
 - multiple element refs

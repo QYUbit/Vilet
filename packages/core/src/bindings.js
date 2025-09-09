@@ -56,7 +56,7 @@ function bindClass(el, context, bind) {
         const newClasses = new Set()
         
         if (typeof dynamicClasses === "string") {
-            dynamicClasses.split(/\s+/).forEach(cls => {
+            dynamicClasses.split(/\s+/).forEach((cls) => {
                 if (cls) newClasses.add(cls)
             })
         } else if (typeof dynamicClasses === "object") {
@@ -66,7 +66,7 @@ function bindClass(el, context, bind) {
                 }
             })
         } else if (Array.isArray(dynamicClasses)) {
-            dynamicClasses.forEach(cls => {
+            dynamicClasses.forEach((cls) => {
                 if (typeof cls === "string") {
                     newClasses.add(cls)
                 } else if (typeof cls === "object") {
@@ -94,7 +94,7 @@ function bindStyle(el, context, bind) {
         const dynamicStyles = ensureValue(bind, context)
         
         if (el._viletStyles) {
-            Object.keys(el._viletStyles).forEach(prop => {
+            Object.keys(el._viletStyles).forEach((prop) => {
                 el.style.removeProperty(prop)
             })
         }
@@ -107,7 +107,17 @@ function bindStyle(el, context, bind) {
         
         const newStyles = {}
         
-        if (typeof dynamicStyles === "object") {
+        if (typeof dynamicStyles === "string") {
+            const cssString = dynamicStyles.trim()
+            if (cssString) {
+                const currentStyle = el.getAttribute("style") || ""
+                const separator = currentStyle && !currentStyle.endsWith(";") ? "; " : ""
+                const finalCssString = cssString.endsWith(";") ? cssString : cssString + ";"
+                el.setAttribute("style", currentStyle + separator + finalCssString)
+                
+                parseCssString(finalCssString, newStyles)
+            }
+        } else if (typeof dynamicStyles === "object") {
             Object.entries(dynamicStyles).forEach(([property, bind]) => {
                 const finalValue = ensureValue(bind, context)
                 if (finalValue != null) {
@@ -119,6 +129,21 @@ function bindStyle(el, context, bind) {
         }
         
         el._viletStyles = newStyles
+    })
+}
+
+function parseCssString(cssString, styles) {
+    const rules = cssString.split(';').filter(rule => rule.trim())
+    
+    rules.forEach(rule => {
+        const colonIndex = rule.indexOf(':')
+        if (colonIndex > 0) {
+            const property = rule.substring(0, colonIndex).trim()
+            const value = rule.substring(colonIndex + 1).trim()
+            if (property && value) {
+                styles[property] = value
+            }
+        }
     })
 }
 

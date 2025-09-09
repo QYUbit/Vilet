@@ -1,7 +1,7 @@
 import esbuild from "esbuild"
 import fs from "node:fs"
 
-const packages = ["core", "model", "store"]
+const packages = ["core", "model", "store", "animation", "observer"]
 
 packages.forEach((_package) => {
     if (!fs.existsSync(`./packages/${_package}/dist`)) {

@@ -1,2 +1,2 @@
-import store from "./index";
+import store from "./index"
 V.use(store)
