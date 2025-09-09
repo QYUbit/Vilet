@@ -28,7 +28,7 @@ function initArrayStore(V, config, context) {
 }
 
 function initObjectStore(V, config, context) {
-    Object.entries(config).forEach(([path, options]) => {        
+    Object.entries(config).forEach(([path, options]) => {      
         let storage = null
         if (options.storage) {
             storage = options.storage
@@ -39,14 +39,26 @@ function initObjectStore(V, config, context) {
             return
         }
 
-        const initial = storage.getItem(options.key ?? `vilet_${path}`)
-        if (initial) {
-            setNestedValue(context, path.split("."), JSON.parse(initial))
+        const start = () => {
+            const initial = storage.getItem(options.key ?? `vilet_${path}`)
+            if (initial) {
+                if (options.onLoad) {
+                    options.onLoad(context, JSON.parse(initial))
+                } else {
+                    setNestedValue(context, path.split("."), JSON.parse(initial))
+                }
+            }
+
+            V.effect(() => {
+                storage.setItem(options.key ?? `vilet_${path}`, JSON.stringify(getNestedValue(context, path.split("."))))
+            })
         }
 
-        V.effect(() => {
-            storage.setItem(options.key ?? `vilet_${path}`, JSON.stringify(getNestedValue(context, path.split("."))))
-        })
+        if (options.delay) {
+            setTimeout(start, options.delay)
+        } else {
+            start
+        }
     })
 }
 

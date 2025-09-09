@@ -46,7 +46,7 @@ export function bindProp(el, props, key, context) {
     if (!key.startsWith("_") && !key.startsWith("$")) {
         return effect(() => {
             const val = ensureValue(value, context, el)
-            if (el.getAttribute(key) !== val) el.setAttribute(key, val)
+            if (el[key] !== val) el[key] = val
         })
     }
 }

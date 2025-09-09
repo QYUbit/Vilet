@@ -2,6 +2,10 @@ import { registerBinding } from "./bind"
 import { effect } from "./reactivity"
 
 export function initBindings() {
+    registerBinding("$ref", (el, ctx, bind) => {
+        return bind(ctx, el)
+    })
+
     registerBinding("$text", (el, ctx, bind) => {
         effect(() => {
             const val = ensureValue(bind, ctx, el)

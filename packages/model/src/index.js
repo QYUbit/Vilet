@@ -3,7 +3,7 @@ export default function model(V) {
         if (typeof bind === "string") {
             return bindModel(V, el, ctx, bind) 
         } else {
-            return bindValidationModel(V, el, ctx, bind)
+            return bindConfigModel(V, el, ctx, bind)
         }
     })
 }
@@ -56,19 +56,15 @@ function bindModel(V, el, context, ctxRef) {
     }
 }
 
-function bindValidationModel(V, el, context, modelConfig) {
-    const { path, validate, transform } = modelConfig
-    const parts = path.split(".")
+function bindConfigModel(V, el, context, modelConfig) {
+    const { path, validate, transform, valid } = modelConfig
+    const _path = path.split(".")
+    const isValidPath = valid.split(".")
     
     // Context -> DOM
     V.effect(() => {
-        const currentValue = getNestedValue(context, parts)
+        const currentValue = getNestedValue(context, _path)
         el.value = String(currentValue || "")
-        
-        el.classList.remove("valid", "invalid")
-        if (currentValue && validate) {
-            el.classList.add(validate(currentValue) ? "valid" : "invalid")
-        }
     })
     
     // DOM -> Context
@@ -78,15 +74,13 @@ function bindValidationModel(V, el, context, modelConfig) {
         if (transform) {
             value = transform(value)
         }
-        
+
         if (!validate || validate(value)) {
-            setNestedValue(context, parts, value)
-            el.classList.remove("invalid")
-            el.classList.add("valid")
+            setNestedValue(context, _path, value)
+            setNestedValue(context, isValidPath, true)
         } else {
-            setNestedValue(context, parts, value)
-            el.classList.remove("valid")
-            el.classList.add("invalid")
+            setNestedValue(context, isValidPath, false)
+            el.value = value // Update context or just DOM?
         }
     }
     

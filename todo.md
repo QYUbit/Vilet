@@ -2,5 +2,7 @@
 
 - code quality?
 - feedback (errors, warnings, type checking)
-- http
+- http plugin
+- fix animation
 - multiple element refs
+- if template
