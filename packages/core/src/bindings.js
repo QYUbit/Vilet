@@ -8,7 +8,7 @@ export function initBindings() {
 
     registerBinding("$text", (el, ctx, bind) => {
         effect(() => {
-            const val = ensureValue(bind, ctx, el)
+            const val = withContext(bind, ctx, el)
             if (el.textContent !== String(val)) {
                 el.textContent = String(val)
             }
@@ -17,8 +17,25 @@ export function initBindings() {
 
     registerBinding("$show", (el, ctx, bind) => {
         effect(() => {
-            const shouldShow = ensureValue(bind, ctx, el)
-            el.style.display = shouldShow ? "block" : "none"
+            let shouldShow, delay = 0;
+            if (typeof bind === "object" && bind !== null && "value" in bind) {
+                shouldShow = withContext(bind.value, ctx, el);
+                delay = bind.hideDelay || 0;
+            } else {
+                shouldShow = withContext(bind, ctx, el);
+            }
+
+            if (el._shouldShow === shouldShow) return
+
+            if (!shouldShow && delay > 0) {
+                el._shouldShow = false
+                setTimeout(() => {
+                    el.style.display = "none"
+                }, delay)
+            } else {
+                el._shouldShow = shouldShow
+                el.style.display = shouldShow? "block": "none"
+            }
         })
     })
 
@@ -33,7 +50,7 @@ export function initBindings() {
             if (templateCleanup) templateCleanup()
             el.innerHTML = ""
 
-            const ref = ensureValue(bind, ctx, el)
+            const ref = withContext(bind, ctx, el)
             ref.init()
             ref.mount(el)
             templateCleanup = ref.destroy
@@ -51,7 +68,7 @@ function bindClass(el, context, bind) {
     }
     
     return effect(() => {
-        const dynamicClasses = ensureValue(bind, context)
+        const dynamicClasses = withContext(bind, context)
         
         if (el._viletClasses) {
             el._viletClasses.forEach(cls => el.classList.remove(cls))
@@ -65,7 +82,7 @@ function bindClass(el, context, bind) {
             })
         } else if (typeof dynamicClasses === "object") {
             Object.entries(dynamicClasses).forEach(([className, condition]) => {
-                if (ensureValue(condition, context)) {
+                if (withContext(condition, context)) {
                     newClasses.add(className)
                 }
             })
@@ -75,7 +92,7 @@ function bindClass(el, context, bind) {
                     newClasses.add(cls)
                 } else if (typeof cls === "object") {
                     Object.entries(cls).forEach(([className, condition]) => {
-                        if (ensureValue(condition, context)) {
+                        if (withContext(condition, context)) {
                             newClasses.add(className)
                         }
                     })
@@ -95,7 +112,7 @@ function bindStyle(el, context, bind) {
     }
     
     return effect(() => {
-        const dynamicStyles = ensureValue(bind, context)
+        const dynamicStyles = withContext(bind, context)
         
         if (el._viletStyles) {
             Object.keys(el._viletStyles).forEach((prop) => {
@@ -123,7 +140,7 @@ function bindStyle(el, context, bind) {
             }
         } else if (typeof dynamicStyles === "object") {
             Object.entries(dynamicStyles).forEach(([property, bind]) => {
-                const finalValue = ensureValue(bind, context)
+                const finalValue = withContext(bind, context)
                 if (finalValue != null) {
                     const cssProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase()
                     el.style.setProperty(cssProperty, String(finalValue))
@@ -158,10 +175,10 @@ function bindFor(el, context, bind, props) {
 
     return effect(() => {
         // Generate keys for new array
-        const arr = ensureValue(bind, context)
+        const arr = withContext(bind, context)
         const newKeys = arr.map((item, i) => {
             if (props.$key) {
-                return ensureValue(props.$key, context, item, i, el)
+                return withContext(props.$key, context, item, i, el)
             }
             
             if (typeof item === "object" && item !== null) {
@@ -187,7 +204,7 @@ function bindFor(el, context, bind, props) {
         // Generate new templates for new keys
         newKeys.forEach((key, i) => {
             if (!templates[key]) {
-                const ref = ensureValue(props.$each, context, arr[i], i)
+                const ref = withContext(props.$each, context, arr[i], i)
                 ref.init()
                 ref.mount(el)
                 templates[key] = ref
@@ -216,6 +233,6 @@ function bindFor(el, context, bind, props) {
     })
 }
 
-function ensureValue(value, ...args) {
+function withContext(value, ...args) {
     return typeof value === "function" ? value(...args) : value
 }

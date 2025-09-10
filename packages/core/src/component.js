@@ -1,5 +1,5 @@
 import { bindElements } from "./bind"
-import { reactive } from "./reactivity"
+import { effect, reactive } from "./reactivity"
 
 const componentDirectives = {}
 
@@ -61,7 +61,8 @@ export function template(config) {
     let active = false
     let clone
     let context
-    let mounted = []
+    let mountedEls = []
+    let isMounted = false
 
     const templateRef = {
         init() {
@@ -84,19 +85,21 @@ export function template(config) {
         },
 
         mount(el) {
-            mounted = Array.from(clone.childNodes)
+            isMounted = true
+            mountedEls = Array.from(clone.childNodes)
             el.appendChild(clone)
             if (isFunction(config.$mount)) config.$mount(context)
         },
 
         unmount(el) {
-            mounted.forEach((element) => {
+            isMounted = false
+            mountedEls.forEach((element) => {
                 if (element.parentNode === el) {
                     el.removeChild(element)
                 }
             })
             
-            mounted = []
+            mountedEls = []
 
             if (isFunction(config.$unmount)) config.$unmount(context)
         },
@@ -115,11 +118,35 @@ export function template(config) {
         },
 
         get mounted() {
-            return mounted
+            return mountedEls
+        },
+
+        get isMounted() {
+            return isMounted
         }
     }
 
+    if (config.$mount) {
+        const { element, when } = config.$mount
+
+        effect(() => {
+            const shouldBeMounted = withContext(when, context)
+
+            if (isMounted !== shouldBeMounted) {
+                if (shouldBeMounted) {
+                    templateRef.mount(element)
+                } else {
+                    templateRef.unmount(element)
+                }
+            }
+        })
+    }
+
     return templateRef
+}
+
+function withContext(value, ...args) {
+    return typeof value === "function"? value(...args): value
 }
 
 function isFunction(value) {

@@ -1,8 +1,6 @@
 # Todo
 
-- code quality?
+- improve code/api
 - feedback (errors, warnings, type checking)
 - http plugin
-- fix animation
 - multiple element refs
-- if template

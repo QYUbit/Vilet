@@ -45,7 +45,7 @@ export function bindProp(el, props, key, context) {
     
     if (!key.startsWith("_") && !key.startsWith("$")) {
         return effect(() => {
-            const val = ensureValue(value, context, el)
+            const val = withContext(value, context, el)
             if (el[key] !== val) el[key] = val
         })
     }
@@ -55,7 +55,7 @@ function interpretAsQuery(key) {
     return key.startsWith(".") || key.startsWith("#") || key.startsWith("[")
 }
 
-function ensureValue(value, ...args) {
+function withContext(value, ...args) {
     return typeof value === "function" ? value(...args) : value
 }
 

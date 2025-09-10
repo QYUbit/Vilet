@@ -29,7 +29,7 @@ export default function animation(V) {
         
         if (trigger) {
             return V.effect(() => {
-                const shouldShow = ensureValue(trigger, ctx)
+                const shouldShow = withContext(trigger, ctx)
                 const keyframes = shouldShow ? animations[enter] : animations[exit]
                 
                 el.animate(keyframes, { 
@@ -42,6 +42,6 @@ export default function animation(V) {
     })
 }
 
-function ensureValue(value, ...args) {
+function withContext(value, ...args) {
     return typeof value === "function"? value(...args): value
 }
