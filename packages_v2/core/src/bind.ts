@@ -1,28 +1,43 @@
 import { effect } from "./reactivity";
+import { ElementConfig } from "./types";
 import { getReactiveValue, isFunction } from "./utils"
 
-type BindingHandler = (el: HTMLElement, value: any, props: object) => void
-const specialBindings: Record<string, BindingHandler> = {}
+export type BindingHandler<T extends HTMLElement = HTMLElement, V = any> = 
+  (el: T, value: V, config: ElementConfig) => void | (() => void)
 
-export function registerBinding(name: string, handler: BindingHandler) {
-    specialBindings[name] = handler
+const specialBindings = new Map<string, BindingHandler>()
+
+export function registerBinding<T extends HTMLElement, V>(
+  name: string, 
+  handler: BindingHandler<HTMLElement, V>
+): void {
+  specialBindings.set(name, handler)
 }
 
-export function bindProp(el: HTMLElement, key: string, value: any, config: object) {
+export function bindProp<T extends HTMLElement>(
+  el: T, 
+  key: string, 
+  value: any, 
+  config: ElementConfig
+): void | (() => void) {
+  const handler = specialBindings.get(key)
+  if (handler) {
+    return handler(el, value, config)
+  }
 
-    if (key in specialBindings) {
-        return specialBindings[key](el, value, config)
-    }
-
-    if (key.startsWith("on") && isFunction(value)) {
-        el.addEventListener(key.slice(2).toLowerCase(), e => value(e, el))
-        return () => el.removeEventListener(key.slice(2).toLowerCase(), value)
-    }
-    
-    if (!key.startsWith("_") && !key.startsWith("$")) {
-        return effect(() => {
-            const val = getReactiveValue(value)
-            if ((el as any)[key] !== val) (el as any)[key] = val
-        })
-    }
+  if (key.startsWith("on") && isFunction(value)) {
+    const eventName = key.slice(2).toLowerCase()
+    const listener = (e: Event) => value(e, el)
+    el.addEventListener(eventName, listener)
+    return () => el.removeEventListener(eventName, listener)
+  }
+  
+  if (!key.startsWith("_") && !key.startsWith("$")) {
+    return effect(() => {
+      const val = getReactiveValue(value)
+      if ((el as any)[key] !== val) {
+        (el as any)[key] = val
+      }
+    })
+  }
 }

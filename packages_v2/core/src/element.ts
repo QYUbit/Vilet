@@ -1,37 +1,44 @@
-import { bindProp } from "./bind";
-import { isFunction, isObject } from "./utils";
+import { bindProp } from "./bind"
+import { ElementConfig, ElementRef } from "./types"
+import { isFunction, isObject } from "./utils"
 
 export interface Selecter {
-    querySelector(selectors: keyof HTMLElementTagNameMap): HTMLElement
+  querySelector<K extends keyof HTMLElementTagNameMap>(
+    selectors: K
+  ): HTMLElementTagNameMap[K] | null
+  querySelector(selectors: string): HTMLElement | null
 }
 
-export interface ElementRef {
-    element: HTMLElement
-    cleanup: Function[]
-    destroy(): void
-}
+export function element<T extends HTMLElement = HTMLElement>(
+  this: Selecter | void,
+  config: ElementConfig
+): ElementRef | undefined {
+  if (!isObject(config)) return
 
-export function element(this: Selecter | void, config: any) {
-    if (!isObject(config)) return;
+  const root: Selecter = this ?? document
+  
+  const el = (config.$element ?? config.$el ?? 
+    root.querySelector(config.$selector ?? config.$select ?? config.$ ?? "")) as T
+  
+  if (!el) {
+    throw new Error("Element not found")
+  }
 
-    const root: Selecter = this ?? document
-
-    const el = config.$element ?? config.$el
-    ?? root.querySelector(config.$selector ?? config.$select ?? config.$)
-
-    const cleanupFns: Function[] = []
-    for (const [key, value] of Object.entries(config)) {
-        const cleanup = bindProp(el, key, value, config)
-        if (isFunction(cleanup)) cleanupFns.push(cleanup)
+  const cleanupFns: Function[] = []
+  
+  for (const [key, value] of Object.entries(config)) {
+    const cleanup = bindProp(el, key, value, config)
+    if (isFunction(cleanup)) {
+      cleanupFns.push(cleanup)
     }
+  }
 
-    const elementRef: ElementRef = {
-        element: el,
-        cleanup: cleanupFns,
-        destroy() {
-            this.cleanup.forEach(fn => fn())
-        }
+  return {
+    element: el,
+    cleanup: cleanupFns,
+    destroy() {
+      this.cleanup.forEach(fn => fn())
     }
-
-    return elementRef
+  }
 }
+

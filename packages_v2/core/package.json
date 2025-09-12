@@ -2,7 +2,7 @@
     "private": true,
     "name": "placeholder",
     "scripts": {
-        "build": "esbuild src/example.ts --bundle --minify --outfile=src/script.js"
+        "build": "esbuild src/example/example.ts --bundle --minify --outfile=src/example/script.js"
     },
     "devDependencies": {
         "@types/node": "^24.3.1",
