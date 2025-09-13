@@ -1,21 +1,11 @@
 import { bindProp } from "./bind"
-import { ElementConfig, ElementRef } from "./types"
+import { ElementConfig, ElementRef, Selecter } from "./types"
 import { isFunction, isObject } from "./utils"
 
-export interface Selecter {
-  querySelector<K extends keyof HTMLElementTagNameMap>(
-    selectors: K
-  ): HTMLElementTagNameMap[K] | null
-  querySelector(selectors: string): HTMLElement | null
-}
-
-export function element<T extends HTMLElement = HTMLElement>(
-  this: Selecter | void,
-  config: ElementConfig
-): ElementRef | undefined {
+export function element<T extends HTMLElement = HTMLElement>(config: ElementConfig): ElementRef | undefined {
   if (!isObject(config)) return
 
-  const root: Selecter = this ?? document
+  const root: Selecter = config.$root ?? document
   
   const el = (config.$element ?? config.$el ?? 
     root.querySelector(config.$selector ?? config.$select ?? config.$ ?? "")) as T

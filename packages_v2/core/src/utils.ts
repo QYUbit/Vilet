@@ -18,3 +18,10 @@ export function getReactiveValue<T>(value: ReactiveValue<T>): T {
   }
   return value as T
 }
+
+export function setReactiveValue<T>(value: ReactiveValue<T>, newValue: T) {
+  if (isRef<T>(value)) {
+    value.value = newValue
+  }
+  if (isFunction(value)) {}
+}

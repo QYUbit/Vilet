@@ -1,4 +1,9 @@
-export type ReactiveValue<T> = T | (() => T) | { value: T }
+export type ReactiveValue<T> = T | (() => T) | { value: T } | Ref<T>
+
+export interface Ref<T> {
+    value: T
+    __isRef: true
+}
 
 export interface ShowConfig {
   value: ReactiveValue<boolean>
@@ -19,12 +24,20 @@ export interface ForConfig<T = any> {
   $key?: (item: T, index: number) => string
 }
 
+export interface Selecter {
+  querySelector<K extends keyof HTMLElementTagNameMap>(
+    selectors: K
+  ): HTMLElementTagNameMap[K] | null
+  querySelector(selectors: string): HTMLElement | null
+}
+
 export interface ElementConfig {
   $?: string
   $selector?: string
   $select?: string
-  $element?: HTMLElement
-  $el?: HTMLElement
+  $element?: Element | null
+  $el?: Element | null
+  $root?: Selecter
   
   id?: ReactiveValue<string>
   className?: ReactiveValue<string>

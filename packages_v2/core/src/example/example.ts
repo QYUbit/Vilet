@@ -1,15 +1,22 @@
-import V from "../index"
+import { clone, element, ref, Ref } from "../index"
+import { store } from "../../../store/src/index"
 
 /**
  * Counter
  */
 function Counter() {
-    const count = V.ref(0)
+    const count = ref(0)
 
-    V.element({
-        $selector: "#counter",
-        textContent: count,
+    store(count, { key: "counter_count" })
+
+    element({
+        $selector: "#counter-button",
         onClick: () => count.value++
+    })
+
+    element({
+        $selector: "#counter-display",
+        textContent: count
     })
 }
 
@@ -22,25 +29,30 @@ interface Todo {
 }
 
 function TodoList() {
-    const todos: V.Ref<Todo[]> = V.ref([])
-    const currentTitle = V.ref("")
+    const todos: Ref<Todo[]> = ref([])
+    const currentTitle = ref("")
 
-    V.element({
+    store(todos, { key: "todolist_todos" })
+    store(currentTitle, { key: "todo_title_input", storage: "sessionStorage" })
+
+    element({
         $selector: "#container",
         $for: todos,
         $key: (item: Todo) => item.id,
         $each: (item: Todo) => {
-            const template = V.clone("#todo-template")
+            const template = clone("#todo-template")
             if (!template) throw new Error("#todo-template not found")
 
-            V.element.bind(template.fragment)({
+            element({
+                $root: template.fragment,
                 $selector: "#card",
                 onclick: () => {
                     todos.value = todos.value.filter(todo => todo.id !== item.id)
                 }
             })
 
-            V.element.bind(template.fragment)({
+            element({
+                $root: template.fragment,
                 $selector: "#title",
                 textContent: item.title
             })
@@ -49,7 +61,7 @@ function TodoList() {
         },
     })
 
-    V.element({
+    element({
         $selector: "#title-input",
         value: currentTitle,
         oninput: (e: any) => {
@@ -57,10 +69,9 @@ function TodoList() {
         }
     })
 
-    V.element({
+    element({
         $selector: "#add-button",
         onclick: () => {
-            console.log("click")
             todos.value.push({
                 id: crypto.randomUUID(),
                 title: currentTitle.value,

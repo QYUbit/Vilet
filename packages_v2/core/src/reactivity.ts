@@ -1,4 +1,5 @@
 import { scheduler } from "./scheduler.js"
+import { Ref } from "./types.js"
 
 type Key = string | symbol
 type Dep = Set<EffectFunc>
@@ -149,12 +150,6 @@ export function effect(fn: () => void) {
  */
 export function isReactive(value: any) {
     return !!(value && value.__isReactive === true)
-}
-
-
-export interface Ref<T> {
-    value: T
-    __isRef: true
 }
 
 /**
