@@ -3,6 +3,7 @@ import { effect } from "../../core/src/reactivity"
 
 let key = 0
 
+// This won't work
 function getAutoKey(): string {
     const k = key
     key++
@@ -29,11 +30,13 @@ export function store<T>(ref: Ref<T>, options?: StoreOptions<T>) {
         if (options?.onload) {
             options.onload(JSON.parse(initial) as T)
         } else {
-            ref.value = JSON.parse(initial) as T
+            console.log(`Load store: ${initial}`)
+            ref.value = JSON.parse(initial)
         }
     }
     
     effect(() => {
+        console.log(`Store effect: ${ref.value}`)
         storage.setItem(options?.key ?? getAutoKey(), JSON.stringify(ref.value))
     })
 }

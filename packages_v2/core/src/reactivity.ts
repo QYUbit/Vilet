@@ -61,7 +61,6 @@ export function reactive<T extends object>(target: T): T {
 
             const result = Reflect.get(target, key, receiver)
 
-            console.log(`INTERNAL get key ${String(key)}`)
             track(target, key)
 
             if (Array.isArray(target) && arrayMethods.includes(key)) {
@@ -86,8 +85,6 @@ export function reactive<T extends object>(target: T): T {
         set(target, key, value, receiver) {
             const oldValue = Reflect.get(target, key, receiver)
             const result = Reflect.set(target, key, value, receiver)
-
-            console.log(`INTERNAL set key ${String(key)}`)
             
             if (value !== oldValue) {
                 trigger(target, key)
@@ -157,6 +154,73 @@ export function isReactive(value: any) {
  * via the .value property.
  */
 export function ref<T>(value: T): Ref<T> {
+    // If the value is already a ref, return it as-is
+    if (isRef(value)) {
+        return value as Ref<T>
+    }
+
+    const refImpl = {
+        __isRef: true as const,
+        _value: value,
+        get value() {
+            track(refImpl, 'value')
+            return this._value
+        },
+        set value(newValue: T) {
+            if (newValue !== this._value) {
+                this._value = newValue
+                trigger(refImpl, 'value')
+            }
+        }
+    }
+
+    // For arrays, we need special handling
+    if (Array.isArray(value)) {
+        // Make the array itself reactive
+        (refImpl as any)._value = reactive([...value])
+        
+        const arrayMethods = ["push", "pop", "shift", "unshift", "splice", "sort", "reverse"]
+        
+        // Wrap array methods to trigger the ref (as non-enumerable properties)
+        arrayMethods.forEach(methodName => {
+            const originalMethod = (refImpl._value as any)[methodName]
+            if (typeof originalMethod === 'function') {
+                Object.defineProperty(refImpl._value, methodName, {
+                    value: function(...args: any[]) {
+                        const result = originalMethod.apply(this, args)
+                        // Trigger the ref's value dependency
+                        trigger(refImpl, 'value')
+                        return result
+                    },
+                    writable: true,
+                    configurable: true,
+                    enumerable: false // This is the key - makes them non-enumerable
+                })
+            }
+        })
+
+        // Handle direct index assignment
+        const originalValue = (refImpl as any)._value
+        refImpl._value = new Proxy(originalValue, {
+            set(target, key, newValue, receiver) {
+                const result = Reflect.set(target, key, newValue, receiver)
+                
+                // If it's a numeric index, trigger the ref
+                if (!isNaN(Number(key))) {
+                    trigger(refImpl, 'value')
+                }
+                
+                return result
+            }
+        })
+    } else if (typeof value === 'object' && value !== null) {
+        // For objects, make them reactive
+        refImpl._value = reactive(value)
+    }
+
+    return refImpl as Ref<T>
+}
+/*export function ref<T>(value: T): Ref<T> {
     if (isRef(value)) {
         return value as Ref<T>
     }
@@ -214,7 +278,7 @@ export function ref<T>(value: T): Ref<T> {
     }
 
     return refImpl as Ref<T>
-}
+}*/
 
 /**
  * Checks if a value is a ref

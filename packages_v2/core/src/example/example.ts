@@ -1,4 +1,4 @@
-import { clone, element, ref, Ref } from "../index"
+import { clone, effect, element, ref } from "../index"
 import { store } from "../../../store/src/index"
 
 /**
@@ -29,10 +29,14 @@ interface Todo {
 }
 
 function TodoList() {
-    const todos: Ref<Todo[]> = ref([])
+    const todos = ref<Todo[]>([])
     const currentTitle = ref("")
 
-    store(todos, { key: "todolist_todos" })
+    effect(() => console.log(`Todo change: ${JSON.stringify(todos.value)}`))
+
+    todos.value = []
+
+    //store(todos, { key: "todolist_todos" })
     store(currentTitle, { key: "todo_title_input", storage: "sessionStorage" })
 
     element({
@@ -81,5 +85,19 @@ function TodoList() {
     })
 }
 
+// ! effects won't trigger for mutation methods for array refs
+
+function test() {
+    console.log("Start test")
+    const arr = ref<number[]>([])
+    effect(() => console.log(`Test: ${JSON.stringify(arr.value)}`))
+    arr.value = []
+    arr.value = [0, 1, 2]
+    arr.value.pop()
+    setTimeout(() => arr.value.push(4))
+    console.log("End test")
+}
+
 Counter()
 TodoList()
+test()
