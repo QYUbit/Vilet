@@ -36,7 +36,7 @@ function TodoList() {
 
     todos.value = []
 
-    //store(todos, { key: "todolist_todos" })
+    store(todos, { key: "todolist_todos" })
     store(currentTitle, { key: "todo_title_input", storage: "sessionStorage" })
 
     element({
@@ -47,7 +47,7 @@ function TodoList() {
             const template = clone("#todo-template")
             if (!template) throw new Error("#todo-template not found")
 
-            element({
+            const el1 = element({
                 $root: template.fragment,
                 $selector: "#card",
                 onclick: () => {
@@ -55,13 +55,13 @@ function TodoList() {
                 }
             })
 
-            element({
+            const el2 = element({
                 $root: template.fragment,
                 $selector: "#title",
                 textContent: item.title
             })
             
-            return template
+            return [template, el1, el2]
         },
     })
 
@@ -85,19 +85,5 @@ function TodoList() {
     })
 }
 
-// ! effects won't trigger for mutation methods for array refs
-
-function test() {
-    console.log("Start test")
-    const arr = ref<number[]>([])
-    effect(() => console.log(`Test: ${JSON.stringify(arr.value)}`))
-    arr.value = []
-    arr.value = [0, 1, 2]
-    arr.value.pop()
-    setTimeout(() => arr.value.push(4))
-    console.log("End test")
-}
-
 Counter()
 TodoList()
-test()

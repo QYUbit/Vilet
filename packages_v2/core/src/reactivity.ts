@@ -17,6 +17,8 @@ let targetMap = new WeakMap<object, Map<Key, Dep>>()
 function track(target: object, key: Key) {
     if (!currentEffect) return
     
+    console.log(`Tracking key "${String(key)}"`)
+
     let depsMap = targetMap.get(target)
     if (!depsMap) {
         targetMap.set(target, (depsMap = new Map()))
@@ -34,6 +36,8 @@ function track(target: object, key: Key) {
 function trigger(target: object, key: Key) {
     const depsMap = targetMap.get(target)
     if (!depsMap) return
+
+    console.log(`Trigering dependencies of key "${String(key)}"`)
     
     const dep = depsMap.get(key)
     if (dep) {
@@ -61,7 +65,9 @@ export function reactive<T extends object>(target: T): T {
 
             const result = Reflect.get(target, key, receiver)
 
-            track(target, key)
+            if (!(Array.isArray(target) && arrayMethods.includes(key))) {
+                track(target, key)
+            }
 
             if (Array.isArray(target) && arrayMethods.includes(key)) {
                 return (...args: any) => {
@@ -71,6 +77,8 @@ export function reactive<T extends object>(target: T): T {
                     if (target.length !== oldLength) {
                         trigger(target, "length")
                     }
+                    
+                    trigger(target, key)
                     
                     return _result
                 }
@@ -143,142 +151,96 @@ export function effect(fn: () => void) {
 }
 
 /**
+ * Creates a reactive reference to a value. The ref's value can be accessed and modified
+ * via the .value property.
+ */
+export function ref<T>(value: T): Ref<T> {
+    if (isRef(value)) {
+        return value as Ref<T>
+    }
+
+    const refImpl = {
+        __isRef: true as const,
+        _value: value,
+        get value() {
+            track(refImpl, 'value')
+            return this._value
+        },
+        set value(newValue: T) {
+            if (newValue !== this._value) {
+                if (Array.isArray(newValue)) {
+                    const reactiveArray = reactive([...newValue])
+                    
+                    this._value = new Proxy(reactiveArray, {
+                        get(target, key, receiver) {
+                            const result = Reflect.get(target, key, receiver)
+                            
+                            if (typeof result === 'function' && arrayMethods.includes(key as string)) {
+                                return function(this: any, ...args: any[]) {
+                                    const res = result.apply(this, args)
+                                    trigger(refImpl, 'value')
+                                    return res
+                                }
+                            }
+                            
+                            return result
+                        },
+                        set(target, key, newVal, receiver) {
+                            const result = Reflect.set(target, key, newVal, receiver)
+                            if (!isNaN(Number(key))) {
+                                trigger(refImpl, 'value')
+                            }
+                            return result
+                        }
+                    }) as any
+                } else {
+                    this._value = newValue
+                }
+                trigger(refImpl, 'value')
+            }
+        }
+    }
+
+    if (Array.isArray(value)) {
+        const reactiveArray = reactive([...value])
+        
+        refImpl._value = new Proxy(reactiveArray, {
+            get(target, key, receiver) {
+                const result = Reflect.get(target, key, receiver)
+                
+                if (typeof result === 'function' && arrayMethods.includes(key as string)) {
+                    return function(this: any, ...args: any[]) {
+                        const res = result.apply(this, args)
+                        trigger(refImpl, 'value')
+                        return res
+                    }
+                }
+                
+                return result
+            },
+            set(target, key, newValue, receiver) {
+                const result = Reflect.set(target, key, newValue, receiver)
+                
+                if (!isNaN(Number(key))) {
+                    trigger(refImpl, 'value')
+                }
+                
+                return result
+            }
+        }) as any
+    } else if (typeof value === 'object' && value !== null) {
+        refImpl._value = reactive(value)
+    }
+
+    return refImpl as Ref<T>
+}
+
+/**
  * Checks if a value is reactive
  */
 export function isReactive(value: any) {
     return !!(value && value.__isReactive === true)
 }
-
-/**
- * Creates a reactive reference to a value. The ref's value can be accessed and modified
- * via the .value property.
- */
-export function ref<T>(value: T): Ref<T> {
-    // If the value is already a ref, return it as-is
-    if (isRef(value)) {
-        return value as Ref<T>
-    }
-
-    const refImpl = {
-        __isRef: true as const,
-        _value: value,
-        get value() {
-            track(refImpl, 'value')
-            return this._value
-        },
-        set value(newValue: T) {
-            if (newValue !== this._value) {
-                this._value = newValue
-                trigger(refImpl, 'value')
-            }
-        }
-    }
-
-    // For arrays, we need special handling
-    if (Array.isArray(value)) {
-        // Make the array itself reactive
-        (refImpl as any)._value = reactive([...value])
-        
-        const arrayMethods = ["push", "pop", "shift", "unshift", "splice", "sort", "reverse"]
-        
-        // Wrap array methods to trigger the ref (as non-enumerable properties)
-        arrayMethods.forEach(methodName => {
-            const originalMethod = (refImpl._value as any)[methodName]
-            if (typeof originalMethod === 'function') {
-                Object.defineProperty(refImpl._value, methodName, {
-                    value: function(...args: any[]) {
-                        const result = originalMethod.apply(this, args)
-                        // Trigger the ref's value dependency
-                        trigger(refImpl, 'value')
-                        return result
-                    },
-                    writable: true,
-                    configurable: true,
-                    enumerable: false // This is the key - makes them non-enumerable
-                })
-            }
-        })
-
-        // Handle direct index assignment
-        const originalValue = (refImpl as any)._value
-        refImpl._value = new Proxy(originalValue, {
-            set(target, key, newValue, receiver) {
-                const result = Reflect.set(target, key, newValue, receiver)
-                
-                // If it's a numeric index, trigger the ref
-                if (!isNaN(Number(key))) {
-                    trigger(refImpl, 'value')
-                }
-                
-                return result
-            }
-        })
-    } else if (typeof value === 'object' && value !== null) {
-        // For objects, make them reactive
-        refImpl._value = reactive(value)
-    }
-
-    return refImpl as Ref<T>
-}
-/*export function ref<T>(value: T): Ref<T> {
-    if (isRef(value)) {
-        return value as Ref<T>
-    }
-
-    const refImpl = {
-        __isRef: true as const,
-        _value: value,
-        get value() {
-            track(refImpl, 'value')
-            return this._value
-        },
-        set value(newValue: T) {
-            if (newValue !== this._value) {
-                this._value = newValue
-                trigger(refImpl, 'value')
-            }
-        }
-    }
-
-    if (Array.isArray(value)) {
-        (refImpl as any)._value = reactive([...value])
-                
-        arrayMethods.forEach((methodName) => {
-            const originalMethod = (refImpl._value as any)[methodName]
-            if (typeof originalMethod === 'function') {
-                Object.defineProperty(refImpl._value, methodName, {
-                    value: function(...args: any[]) {
-                        const result = originalMethod.apply(this, args)
-                        // Trigger the ref's value dependency
-                        trigger(refImpl, 'value')
-                        return result
-                    },
-                    writable: true,
-                    configurable: true,
-                    enumerable: false
-                })
-            }
-        })
-
-
-        const originalValue = refImpl._value
-        refImpl._value = new Proxy(originalValue as any, {
-            set(target, key, newValue, receiver) {
-                const result = Reflect.set(target, key, newValue, receiver)
-                
-                if (!isNaN(Number(key))) {
-                    trigger(refImpl, 'value')
-                }
-                
-                return result
-            }
-        })
-    } else if (typeof value === 'object' && value !== null) {
-        refImpl._value = reactive(value)
-    }
-
-    return refImpl as Ref<T>
-}*/
 
 /**
  * Checks if a value is a ref

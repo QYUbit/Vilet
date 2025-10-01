@@ -1,14 +1,16 @@
 import { registerBinding } from "./bind"
 import { effect } from "./reactivity"
-import { ClassValue, ElementConfig, ForConfig, ReactiveValue, ShowConfig, StyleValue, TemplateRef } from "./types"
+import { ClassValue, ElementConfig, ElementRef, ReactiveValue, ShowConfig, StyleValue, TemplateRef } from "./types"
 import { getReactiveValue, isObject } from "./utils"
 
 export function initBindings(): void {
-  registerBinding<HTMLElement, ReactiveValue<string | number>>("$text", bindText)
-  registerBinding<HTMLElement, ReactiveValue<boolean> | ShowConfig>("$show", bindShow)
-  registerBinding<HTMLElement, ReactiveValue<ClassValue>>("$class", bindClass)
-  registerBinding<HTMLElement, ReactiveValue<StyleValue>>("$style", bindStyle)
-  registerBinding<HTMLElement, ReactiveValue<any[]>>("$for", bindFor)
+  registerBinding<ReactiveValue<string | number>>("$text", bindText)
+  registerBinding<ReactiveValue<boolean> | ShowConfig>("$show", bindShow)
+  registerBinding<ReactiveValue<ClassValue>>("$class", bindClass)
+  registerBinding<ReactiveValue<StyleValue>>("$style", bindStyle)
+  registerBinding<ReactiveValue<(TemplateRef | ElementRef | null)[]>>("$template", bindTemplate)
+  registerBinding<ReactiveValue<any[]>>("$for", bindFor)
+  registerBinding("$if", () => {})
   registerBinding("$each", () => {})
   registerBinding("$key", () => {})
 }
@@ -73,7 +75,6 @@ function bindClass(element: HTMLElement, value: ReactiveValue<ClassValue>): () =
   return effect(() => {
     const dynamicClasses = getReactiveValue(value)
     
-    // Entferne vorherige dynamische Klassen
     if (el._viletClasses) {
       el._viletClasses.forEach(cls => el.classList.remove(cls))
     }
@@ -182,12 +183,38 @@ function parseCssString(cssString: string, styles: Record<string, string>): void
   })
 }
 
+function bindTemplate(
+  el: HTMLElement,
+  value: ReactiveValue<(TemplateRef | ElementRef | null)[]>,
+  config: ElementConfig
+): () => void {
+  let _template: TemplateRef | null = null
+  let cleanup: Function[] = []
+
+  return effect(() => {
+    const shouldShow = config.$if ? getReactiveValue(config.$if) : true
+    const [template, cleanupFns] = getReturnValues(getReactiveValue(value), "$template")
+
+    if (shouldShow) {
+      template.mount(el)
+      _template = template
+      cleanup = cleanupFns
+    } else {
+      _template?.unmount(el)
+      cleanup.forEach(fn => fn())
+      _template = null
+      cleanup = []
+    }
+  })
+}
+
 function bindFor<T>(
   el: HTMLElement, 
   value: ReactiveValue<T[]>, 
   config: ElementConfig
 ): () => void {
   const templates = new Map<string, TemplateRef>()
+  const cleanup = new Map<string, Function[]>()
   const itemKeyMap = new WeakMap<object, string>()
   let keyCounter = 0
 
@@ -219,14 +246,22 @@ function bindFor<T>(
         template.unmount(el)
         templates.delete(key)
       }
+
+      const cleanupFns = cleanup.get(key)
+      if (cleanupFns && cleanupFns.length > 0) {
+        cleanupFns.forEach(fn => fn())
+        cleanup.delete(key)
+      }
     })
 
     newKeys.forEach((key, i) => {
       if (!templates.has(key)) {
         if (config.$each === undefined) throw new Error("required $each binding is missing for $for binding")
-        const template = config.$each(arr[i], i)
+        const [template, cleanupFns] = getReturnValues(config.$each(arr[i], i), "$each")
         template.mount(el)
+
         templates.set(key, template)
+        cleanup.set(key, cleanupFns)
       }
     })
 
@@ -248,4 +283,23 @@ function bindFor<T>(
       }
     })
   })
+}
+
+function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingName: string): [TemplateRef, Function[]] {
+  let template: TemplateRef | null = null;
+  let cleanupFns: Function[] = [];
+
+  values.forEach((value) => {
+    if (!value) return;
+
+    if ("mounted" in value) {
+      if (template) throw new Error(`${bindingName} must not return more than one templateRef`)
+      template = value
+    } else {
+      cleanupFns.push(...value.cleanup)
+    }
+  })
+
+  if (!template) throw new Error(`${bindingName} has to return a templateRef`)
+  return [template, cleanupFns]
 }

@@ -7,7 +7,7 @@ export type BindingHandler<T extends HTMLElement = HTMLElement, V = any> =
 
 const specialBindings = new Map<string, BindingHandler>()
 
-export function registerBinding<T extends HTMLElement, V>(
+export function registerBinding<V>(
   name: string, 
   handler: BindingHandler<HTMLElement, V>
 ): void {

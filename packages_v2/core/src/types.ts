@@ -59,8 +59,10 @@ export interface ElementConfig {
   $show?: ReactiveValue<boolean> | ShowConfig
   $class?: ReactiveValue<ClassValue>
   $style?: ReactiveValue<StyleValue>
+  $template?: () => (TemplateRef | ElementRef | null)[]
+  $if?: ReactiveValue<boolean>
   $for?: ReactiveValue<any[]>
-  $each?: (item: any, index: number) => TemplateRef
+  $each?: (item: any, index: number) => (TemplateRef | ElementRef | null)[]
   $key?: (item: any, index: number) => string
   
   [key: string]: any
