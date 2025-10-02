@@ -1,12 +1,12 @@
 {
-  "name": "vilet",
-  "version": "2.0.0",
+  "name": "@vilet/store",
+  "version": "1.0.0",
   "main": "dist/module.cjs.js",
   "module": "dist/module.esm.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/QYUbit/Vilet.git",
-    "directory": "packages/core"
+    "directory": "packages/store"
   },
   "license": "MIT",
   "description": "",

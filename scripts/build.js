@@ -1,7 +1,7 @@
 import esbuild from "esbuild"
 import fs from "node:fs"
 
-const packages = ["core", "model", "store", "animation", "observer"]
+const packages = ["core", "navigation", "store", "router"]
 
 packages.forEach((_package) => {
     if (!fs.existsSync(`./packages/${_package}/dist`)) {
@@ -9,21 +9,21 @@ packages.forEach((_package) => {
     }
 
     esbuild.build({
-        entryPoints: [`./packages/${_package}/src/index.js`],
+        entryPoints: [`./packages/${_package}/src/index.ts`],
         outfile: `packages/${_package}/dist/module.esm.js`,
         bundle: true,
         platform: "neutral",
     }).catch(handleBuildError)
 
     esbuild.build({
-        entryPoints: [`./packages/${_package}/src/index.js`],
+        entryPoints: [`./packages/${_package}/src/index.ts`],
         outfile: `packages/${_package}/dist/module.cjs.js`,
         bundle: true,
         platform: "node",
     }).catch(handleBuildError)
 
     esbuild.build({
-        entryPoints: [`./packages/${_package}/src/browser.js`],
+        entryPoints: [`./packages/${_package}/src/browser.ts`],
         outfile: `packages/${_package}/dist/cdn.min.js`,
         bundle: true,
         minify: true,

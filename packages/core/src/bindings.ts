@@ -194,6 +194,7 @@ function bindTemplate(
   return effect(() => {
     const shouldShow = config.$if ? getReactiveValue(config.$if) : true
     const [template, cleanupFns] = getReturnValues(getReactiveValue(value), "$template")
+    if (!template) return
 
     if (shouldShow) {
       template.mount(el)
@@ -258,6 +259,8 @@ function bindFor<T>(
       if (!templates.has(key)) {
         if (config.$each === undefined) throw new Error("required $each binding is missing for $for binding")
         const [template, cleanupFns] = getReturnValues(config.$each(arr[i], i), "$each")
+        if (!template) return
+
         template.mount(el)
 
         templates.set(key, template)
@@ -285,7 +288,7 @@ function bindFor<T>(
   })
 }
 
-function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingName: string): [TemplateRef, Function[]] {
+function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingName: string): [TemplateRef | null, Function[]] {
   let template: TemplateRef | null = null;
   let cleanupFns: Function[] = [];
 
@@ -293,13 +296,18 @@ function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingNam
     if (!value) return;
 
     if ("mounted" in value) {
-      if (template) throw new Error(`${bindingName} must not return more than one templateRef`)
+      if (template) {
+        console.warn(`${bindingName} must not return more than one templateRef`)
+        return
+      }
       template = value
     } else {
       cleanupFns.push(...value.cleanup)
     }
   })
 
-  if (!template) throw new Error(`${bindingName} has to return a templateRef`)
+  if (!template) {
+    console.error(`${bindingName} has to return a templateRef`)
+  }
   return [template, cleanupFns]
 }

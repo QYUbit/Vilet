@@ -1,12 +1,12 @@
 {
-  "name": "vilet",
+  "name": "@vilet/router",
   "version": "2.0.0",
   "main": "dist/module.cjs.js",
   "module": "dist/module.esm.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/QYUbit/Vilet.git",
-    "directory": "packages/core"
+    "directory": "packages/router"
   },
   "license": "MIT",
   "description": "",
