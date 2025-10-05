@@ -556,93 +556,508 @@
   // packages/core/src/index.ts
   initBindings();
 
-  // packages/store/src/index.ts
-  function store(ref2, options) {
-    const storageStr = options.storage || "localStorage";
-    if (!(storageStr in window)) {
-      console.warn(`Cannot use store plugin, since ${storageStr} is not available`);
-      return;
+  // packages/navigation/src/index.ts
+  var NavigationImpl = class {
+    currentRoute;
+    routes;
+    guards = [];
+    afterHooks = [];
+    isNavigating = false;
+    constructor(routes) {
+      this.routes = routes;
+      this.currentRoute = ref({
+        path: "/",
+        params: {},
+        query: {},
+        hash: ""
+      });
+      this.init();
     }
-    const storage = window[storageStr];
-    const initial = storage.getItem(options.key);
-    if (initial) {
-      if (options.onload) {
-        options.onload(JSON.parse(initial));
+    init() {
+      window.addEventListener("hashchange", () => this.handleRouteChange());
+      window.addEventListener("load", () => this.handleRouteChange());
+      this.handleRouteChange();
+    }
+    async handleRouteChange() {
+      if (this.isNavigating) return;
+      const hash = window.location.hash.slice(1) || "/";
+      const [pathWithQuery, hashFragment] = hash.split("#");
+      const [path, queryString] = pathWithQuery.split("?");
+      const newLocation = {
+        path: path || "/",
+        params: {},
+        query: this.parseQuery(queryString || ""),
+        hash: hashFragment || ""
+      };
+      const matched = this.matchRoute(newLocation.path);
+      if (matched) {
+        newLocation.params = matched.params;
+        const canNavigate = await this.runGuards(newLocation, this.currentRoute.value);
+        if (canNavigate) {
+          const oldRoute = this.currentRoute.value;
+          this.currentRoute.value = newLocation;
+          this.runAfterHooks(newLocation, oldRoute);
+        } else {
+          this.isNavigating = true;
+          window.location.hash = this.buildHash(this.currentRoute.value);
+          this.isNavigating = false;
+        }
       } else {
-        console.log(`Load store: ${initial}`);
-        ref2.value = JSON.parse(initial);
+        console.warn(`No route matched for path: ${newLocation.path}`);
       }
     }
-    effect(() => {
-      console.log(`Store effect: ${ref2.value}`);
-      storage.setItem(options.key, JSON.stringify(ref2.value));
-    });
+    matchRoute(path, routes = this.routes, parentPath = "") {
+      for (const route of routes) {
+        const fullPath = this.joinPaths(parentPath, route.path);
+        const match = this.matchPath(fullPath, path);
+        if (match) {
+          return { route, params: match };
+        }
+        if (route.children) {
+          const childMatch = this.matchRoute(path, route.children, fullPath);
+          if (childMatch) return childMatch;
+        }
+      }
+      return null;
+    }
+    matchPath(routePath, actualPath) {
+      const routeSegments = routePath.split("/").filter(Boolean);
+      const pathSegments = actualPath.split("/").filter(Boolean);
+      if (routeSegments.length !== pathSegments.length) {
+        return null;
+      }
+      const params = {};
+      for (let i = 0; i < routeSegments.length; i++) {
+        const routeSegment = routeSegments[i];
+        const pathSegment = pathSegments[i];
+        if (routeSegment.startsWith(":")) {
+          const paramName = routeSegment.slice(1);
+          params[paramName] = pathSegment;
+        } else if (routeSegment !== pathSegment) {
+          return null;
+        }
+      }
+      return params;
+    }
+    joinPaths(...paths) {
+      return "/" + paths.join("/").split("/").filter(Boolean).join("/");
+    }
+    parseQuery(queryString) {
+      const query = {};
+      if (!queryString) return query;
+      queryString.split("&").forEach((param) => {
+        const [key, value] = param.split("=");
+        if (key) {
+          query[decodeURIComponent(key)] = decodeURIComponent(value || "");
+        }
+      });
+      return query;
+    }
+    buildQuery(query) {
+      const params = Object.entries(query).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join("&");
+      return params ? `?${params}` : "";
+    }
+    buildHash(location) {
+      let hash = `#${location.path}`;
+      if (Object.keys(location.query).length > 0) {
+        hash += this.buildQuery(location.query);
+      }
+      if (location.hash) {
+        hash += `#${location.hash}`;
+      }
+      return hash;
+    }
+    async runGuards(to, from) {
+      const matched = this.matchRoute(to.path);
+      if (matched?.route.beforeEnter) {
+        const result = await matched.route.beforeEnter({ to, from });
+        if (!result) return false;
+      }
+      for (const guard of this.guards) {
+        const result = await guard({ to, from });
+        if (!result) return false;
+      }
+      return true;
+    }
+    runAfterHooks(to, from) {
+      this.afterHooks.forEach((hook) => hook(to, from));
+    }
+    async push(path, options = {}) {
+      this.isNavigating = true;
+      const location = {
+        path,
+        params: {},
+        query: options.query || {},
+        hash: options.hash || ""
+      };
+      window.location.hash = this.buildHash(location);
+      this.isNavigating = false;
+    }
+    async replace(path, options = {}) {
+      this.isNavigating = true;
+      const location = {
+        path,
+        params: {},
+        query: options.query || {},
+        hash: options.hash || ""
+      };
+      window.location.replace(this.buildHash(location));
+      this.isNavigating = false;
+    }
+    back() {
+      window.history.back();
+    }
+    forward() {
+      window.history.forward();
+    }
+    go(delta) {
+      window.history.go(delta);
+    }
+    beforeEach(guard) {
+      this.guards.push(guard);
+      return () => {
+        const index = this.guards.indexOf(guard);
+        if (index > -1) {
+          this.guards.splice(index, 1);
+        }
+      };
+    }
+    afterEach(callback) {
+      this.afterHooks.push(callback);
+      return () => {
+        const index = this.afterHooks.indexOf(callback);
+        if (index > -1) {
+          this.afterHooks.splice(index, 1);
+        }
+      };
+    }
+    addRoute(route) {
+      this.routes.push(route);
+    }
+    removeRoute(name) {
+      const index = this.routes.findIndex((r) => r.name === name);
+      if (index > -1) {
+        this.routes.splice(index, 1);
+      }
+    }
+    hasRoute(name) {
+      return this.routes.some((r) => r.name === name);
+    }
+    getRoutes() {
+      return [...this.routes];
+    }
+    resolve(path) {
+      const matched = this.matchRoute(path);
+      if (!matched) return null;
+      return {
+        path,
+        params: matched.params,
+        query: {},
+        hash: ""
+      };
+    }
+  };
+  function createNavigation(routes) {
+    return new NavigationImpl(routes);
+  }
+  function getMatchedComponent(router2) {
+    const currentPath = router2.currentRoute.value.path;
+    function findComponent(routes, path, parentPath = "") {
+      for (const route of routes) {
+        const fullPath = "/" + [parentPath, route.path].join("/").split("/").filter(Boolean).join("/");
+        const match = matchPath(fullPath, path);
+        if (match) {
+          if (route.redirect) {
+            return findComponent(routes, route.redirect);
+          }
+          return route.component || null;
+        }
+        if (route.children) {
+          const childComponent = findComponent(route.children, path, fullPath);
+          if (childComponent) return childComponent;
+        }
+      }
+      return null;
+    }
+    function matchPath(routePath, actualPath) {
+      const routeSegments = routePath.split("/").filter(Boolean);
+      const pathSegments = actualPath.split("/").filter(Boolean);
+      if (routeSegments.length !== pathSegments.length) {
+        return false;
+      }
+      for (let i = 0; i < routeSegments.length; i++) {
+        const routeSegment = routeSegments[i];
+        const pathSegment = pathSegments[i];
+        if (!routeSegment.startsWith(":") && routeSegment !== pathSegment) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return findComponent(router2.routes, currentPath);
   }
 
-  // examples/store_example/example.ts
-  function Counter() {
-    const count = ref(0);
-    store(count, { key: "counter_count" });
+  // examples/navigation_sample/navigation.ts
+  var isAuthenticated = ref(false);
+  function AdminLayout() {
+    const template = clone("#admin-layout-template");
+    if (!template) throw new Error("#admin-layout-template not found");
+    const navLinks = [
+      { text: "Dashboard", path: "/admin/dashboard" },
+      { text: "Users", path: "/admin/users" },
+      { text: "Settings", path: "/admin/settings" }
+    ];
+    const navContainer = template.fragment.querySelector("#admin-nav");
+    if (navContainer) {
+      navLinks.forEach((link) => {
+        const a = document.createElement("a");
+        a.textContent = link.text;
+        a.onclick = () => router.push(link.path);
+        navContainer.appendChild(a);
+      });
+    }
     element({
-      $selector: "#counter-button",
-      onClick: () => count.value++
+      $root: template.fragment,
+      $selector: "#admin-content",
+      $template: () => {
+        const component = getMatchedComponent(router);
+        return component ? component() : [];
+      }
     });
-    element({
-      $selector: "#counter-display",
-      textContent: count
-    });
+    return [template];
   }
-  function TodoList() {
-    const todos = ref([]);
-    const currentTitle = ref("");
-    effect(() => console.log(`Todo change: ${JSON.stringify(todos.value)}`));
-    store(todos, { key: "todolist_todos" });
-    store(currentTitle, { key: "todo_title_input", storage: "sessionStorage" });
+  function DashboardPage() {
+    const template = clone("#dashboard-template");
+    if (!template) throw new Error("#dashboard-template not found");
     element({
-      $selector: "#container",
-      // Observe todos
-      $for: todos,
-      // Use item.id as key
-      $key: (item) => item.id,
-      // Execute this callback for each todo
-      $each: (item) => {
-        const template = clone("#todo-template");
-        if (!template) return [];
-        const el1 = element({
-          $root: template.fragment,
-          $selector: "#card",
-          // Listen to clicks on this element
-          onclick: () => {
-            todos.value = todos.value.filter((todo) => todo.id !== item.id);
-          }
-        });
-        const el2 = element({
-          $root: template.fragment,
-          $selector: "#title",
-          // Bind text content to item.title
-          textContent: item.title
-        });
-        return [template, el1, el2];
-      }
+      $root: template.fragment,
+      $selector: "#dashboard-title",
+      textContent: "Admin Dashboard"
     });
+    return [template];
+  }
+  function AdminUsersPage() {
+    const template = clone("#admin-users-template");
+    if (!template) throw new Error("#admin-users-template not found");
     element({
-      $selector: "#title-input",
-      value: currentTitle,
-      oninput: (e) => {
-        currentTitle.value = e.target?.value;
-      }
+      $root: template.fragment,
+      $selector: "#users-list",
+      textContent: "List of users..."
     });
+    return [template];
+  }
+  function AdminSettingsPage() {
+    const template = clone("#admin-settings-template");
+    if (!template) throw new Error("#admin-settings-template not found");
     element({
-      $selector: "#add-button",
+      $root: template.fragment,
+      $selector: "#settings-form",
+      textContent: "Settings form..."
+    });
+    return [template];
+  }
+  function LoginPage() {
+    const template = clone("#login-template");
+    if (!template) throw new Error("#login-template not found");
+    element({
+      $root: template.fragment,
+      $selector: "#login-button",
       onclick: () => {
-        todos.value.push({
-          id: crypto.randomUUID(),
-          title: currentTitle.value
-        });
-        currentTitle.value = "";
+        isAuthenticated.value = true;
+        router.push("/admin");
       }
     });
+    return [template];
   }
-  Counter();
-  TodoList();
+  var router = createNavigation([
+    {
+      path: "/",
+      name: "home",
+      component: () => {
+        const template = clone("#home-simple-template");
+        if (!template) throw new Error("#home-simple-template not found");
+        return [template];
+      }
+    },
+    {
+      path: "/login",
+      name: "login",
+      component: LoginPage,
+      meta: { requiresGuest: true }
+    },
+    {
+      path: "/admin",
+      name: "admin",
+      component: AdminLayout,
+      meta: { requiresAuth: true },
+      beforeEnter: ({ to, from }) => {
+        console.log("Admin beforeEnter guard");
+        if (!isAuthenticated.value) {
+          console.log("Not authenticated, redirecting to login");
+          router.push("/login");
+          return false;
+        }
+        return true;
+      },
+      children: [
+        {
+          path: "",
+          redirect: "/admin/dashboard"
+        },
+        {
+          path: "dashboard",
+          name: "admin-dashboard",
+          component: DashboardPage,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: "users",
+          name: "admin-users",
+          component: AdminUsersPage,
+          meta: { requiresAuth: true, requiresAdmin: true }
+        },
+        {
+          path: "settings",
+          name: "admin-settings",
+          component: AdminSettingsPage,
+          meta: { requiresAuth: true }
+        }
+      ]
+    },
+    {
+      path: "/profile/:userId",
+      name: "profile",
+      component: () => {
+        const template = clone("#profile-template");
+        if (!template) throw new Error("#profile-template not found");
+        const userId = router.currentRoute.value.params.userId;
+        element({
+          $root: template.fragment,
+          $selector: "#profile-id",
+          textContent: `Viewing profile: ${userId}`
+        });
+        return [template];
+      },
+      beforeEnter: async ({ to, from }) => {
+        console.log(`Validating user ${to.params.userId}...`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (to.params.userId === "999") {
+          console.log("User not found");
+          router.push("/");
+          return false;
+        }
+        return true;
+      }
+    }
+  ]);
+  router.beforeEach(({ to, from }) => {
+    console.log(`Global beforeEach: ${from.path} -> ${to.path}`);
+    const matched = findMatchedRoute(to.path);
+    if (matched?.meta?.requiresAuth && !isAuthenticated.value) {
+      console.log("Route requires authentication");
+      router.push("/login");
+      return false;
+    }
+    if (matched?.meta?.requiresGuest && isAuthenticated.value) {
+      console.log("Already authenticated");
+      router.push("/admin");
+      return false;
+    }
+    return true;
+  });
+  function findMatchedRoute(path) {
+    function search(routes, parentPath = "") {
+      for (const route of routes) {
+        const fullPath = parentPath + route.path;
+        if (matchesPath(fullPath, path)) {
+          return route;
+        }
+        if (route.children) {
+          const child = search(route.children, fullPath);
+          if (child) return child;
+        }
+      }
+      return null;
+    }
+    return search(router.getRoutes());
+  }
+  function matchesPath(pattern, path) {
+    const patternParts = pattern.split("/").filter(Boolean);
+    const pathParts = path.split("/").filter(Boolean);
+    if (patternParts.length !== pathParts.length) return false;
+    for (let i = 0; i < patternParts.length; i++) {
+      if (!patternParts[i].startsWith(":") && patternParts[i] !== pathParts[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+  router.afterEach((to, from) => {
+    console.log(`Navigation completed: ${from.path} -> ${to.path}`);
+    if (to.path) {
+      document.title = `App - ${to.path}`;
+    }
+    console.log("Track page view:", to.path);
+  });
+  element({
+    $selector: "#app-router-view",
+    $template: () => {
+      const component = getMatchedComponent(router);
+      if (component) {
+        return component();
+      }
+      return [];
+    }
+  });
+  element({
+    $selector: "#nav-home",
+    onclick: () => router.push("/")
+  });
+  element({
+    $selector: "#nav-admin",
+    onclick: () => router.push("/admin")
+  });
+  element({
+    $selector: "#nav-profile",
+    onclick: () => router.push("/profile/123")
+  });
+  element({
+    $selector: "#nav-login",
+    onclick: () => router.push("/login")
+  });
+  element({
+    $selector: "#logout-button",
+    onclick: () => {
+      isAuthenticated.value = false;
+      router.push("/login");
+    }
+  });
+  element({
+    $selector: "#auth-status",
+    textContent: () => isAuthenticated.value ? "Logged In" : "Logged Out"
+  });
+  element({
+    $selector: "#auth-actions",
+    style: () => ({ display: isAuthenticated.value ? "inline" : "none" })
+  });
+  element({
+    $selector: "#search-button",
+    onclick: () => {
+      router.push("/search", {
+        query: {
+          q: "typescript",
+          page: "1",
+          sort: "relevance"
+        }
+      });
+    }
+  });
+  element({
+    $selector: "#section-link",
+    onclick: () => {
+      router.push("/docs", {
+        hash: "section-2"
+      });
+    }
+  });
 })();

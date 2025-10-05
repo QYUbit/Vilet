@@ -69,6 +69,7 @@ export interface ElementConfig {
 }
 
 export interface TemplateRef {
+  id: string
   mounted: boolean
   elements: ChildNode[]
   fragment: DocumentFragment

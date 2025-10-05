@@ -7,6 +7,7 @@ export function clone(selector: string) {
     const clone = template.content.cloneNode(true) as DocumentFragment
 
     const templateRef: TemplateRef = {
+        id: crypto.randomUUID(),
         mounted: false,
         elements: [] as ChildNode[],
         fragment: clone,

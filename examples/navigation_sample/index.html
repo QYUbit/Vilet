@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Router Example</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        nav {
+            background: #f0f0f0;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        nav a {
+            margin-right: 15px;
+            cursor: pointer;
+            color: #0066cc;
+        }
+        
+        #app-router-view {
+            min-height: 300px;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        
+        .admin-layout {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .admin-sidebar {
+            width: 200px;
+            background: #f5f5f5;
+            padding: 15px;
+        }
+        
+        #admin-nav a {
+            display: block;
+            padding: 10px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        
+        #admin-content {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a id="nav-home">Home</a>
+        <a id="nav-admin">Admin</a>
+        <a id="nav-profile">Profile</a>
+        <a id="nav-login">Login</a>
+        <span id="auth-status"></span>
+        <span id="auth-actions">
+            <button id="logout-button">Logout</button>
+        </span>
+    </nav>
+    
+    <div id="app-router-view"></div>
+    
+    <template id="home-simple-template">
+        <div>
+            <h2>Home</h2>
+            <p>Welcome to the app</p>
+        </div>
+    </template>
+    
+    <template id="login-template">
+        <div>
+            <h2>Login</h2>
+            <button id="login-button">Login</button>
+        </div>
+    </template>
+    
+    <template id="admin-layout-template">
+        <div class="admin-layout">
+            <div class="admin-sidebar">
+                <div id="admin-nav"></div>
+            </div>
+            <div id="admin-content"></div>
+        </div>
+    </template>
+    
+    <template id="dashboard-template">
+        <div>
+            <h2 id="dashboard-title"></h2>
+            <p>Dashboard content</p>
+        </div>
+    </template>
+    
+    <template id="admin-users-template">
+        <div>
+            <h2>Users</h2>
+            <div id="users-list"></div>
+        </div>
+    </template>
+    
+    <template id="admin-settings-template">
+        <div>
+            <h2>Settings</h2>
+            <div id="settings-form"></div>
+        </div>
+    </template>
+    
+    <template id="profile-template">
+        <div>
+            <h2>Profile</h2>
+            <p id="profile-id"></p>
+        </div>
+    </template>
+    
+    <template id="dynamic-template">
+        <div>
+            <h2>Dynamic Route</h2>
+        </div>
+    </template>
+    
+    <script type="module" src="script.js"></script>
+</body>
+</html>

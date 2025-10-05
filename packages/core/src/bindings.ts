@@ -188,23 +188,28 @@ function bindTemplate(
   value: ReactiveValue<(TemplateRef | ElementRef | null)[]>,
   config: ElementConfig
 ): () => void {
+  let show = false
   let _template: TemplateRef | null = null
   let cleanup: Function[] = []
 
   return effect(() => {
     const shouldShow = config.$if ? getReactiveValue(config.$if) : true
     const [template, cleanupFns] = getReturnValues(getReactiveValue(value), "$template")
-    if (!template) return
+    const templateChanged = _template?.id !== template?.id
+    const showChanged = shouldShow !== show
 
-    if (shouldShow) {
-      template.mount(el)
-      _template = template
-      cleanup = cleanupFns
-    } else {
+    if (templateChanged || (!shouldShow && showChanged)) {
       _template?.unmount(el)
       cleanup.forEach(fn => fn())
       _template = null
       cleanup = []
+    }
+
+    if (templateChanged || (shouldShow && showChanged)) {
+      if (!template) return
+      template.mount(el)
+      _template = template
+      cleanup = cleanupFns
     }
   })
 }
