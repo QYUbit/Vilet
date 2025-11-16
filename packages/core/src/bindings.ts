@@ -37,7 +37,7 @@ function bindShow(el: HTMLElement, value: ReactiveValue<boolean>): () => void {
     if (showEl._shouldShow === shouldShow) return
 
     showEl._shouldShow = shouldShow
-    el.style.display = shouldShow ? "block" : "none"
+    el.style.display = shouldShow ? "" : "none"
   })
 }
 

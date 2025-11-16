@@ -1,7 +1,8 @@
 {
   "name": "vilet",
-  "version": "2.1.0",
+  "version": "2.1.4",
   "main": "dist/module.cjs.js",
+  "types": "dist/index.d.ts",
   "module": "dist/module.esm.js",
   "repository": {
     "type": "git",
