@@ -1,4 +1,4 @@
-import { element, clone, ref } from "../../packages/core/src/index"
+/*import { element, clone, ref } from "../../packages/core/src/index"
 import { createNavigation, getMatchedComponent } from "../../packages/navigation/src/index"
 
 // Authentication state
@@ -355,4 +355,4 @@ element({
             hash: 'section-2'
         })
     }
-})
+})*/

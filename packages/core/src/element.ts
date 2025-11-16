@@ -2,8 +2,8 @@ import { bindProp } from "./bind"
 import { ElementConfig, ElementRef, Selecter } from "./types"
 import { isFunction, isObject } from "./utils"
 
-export function element<T extends HTMLElement = HTMLElement>(config: ElementConfig): ElementRef | null {
-  if (!isObject(config)) return null;
+export function element<T extends HTMLElement = HTMLElement>(config: ElementConfig): ElementRef | undefined {
+  if (!isObject(config)) return;
 
   const root: Selecter = config.$root ?? document
   
@@ -11,7 +11,7 @@ export function element<T extends HTMLElement = HTMLElement>(config: ElementConf
     root.querySelector(config.$selector ?? config.$select ?? config.$ ?? "")) as T
   
   if (!el) {
-    return null;
+    return;
   }
 
   const cleanupFns: Function[] = []

@@ -1,3 +1,4 @@
+import { log } from "./log.js"
 import { scheduler } from "./scheduler.js"
 import { Ref } from "./types.js"
 
@@ -17,7 +18,7 @@ let targetMap = new WeakMap<object, Map<Key, Dep>>()
 function track(target: object, key: Key) {
     if (!currentEffect) return
     
-    console.log(`Tracking key "${String(key)}"`)
+    log(`Tracking key "${String(key)}"`)
 
     let depsMap = targetMap.get(target)
     if (!depsMap) {
@@ -37,7 +38,7 @@ function trigger(target: object, key: Key) {
     const depsMap = targetMap.get(target)
     if (!depsMap) return
 
-    console.log(`Trigering dependencies of key "${String(key)}"`)
+    log(`Trigering dependencies of key "${String(key)}"`)
     
     const dep = depsMap.get(key)
     if (dep) {

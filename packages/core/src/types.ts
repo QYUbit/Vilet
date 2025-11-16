@@ -14,11 +14,6 @@ export type StyleValue =
   | string 
   | Record<string, ReactiveValue<string | number | null>>
 
-export interface ForConfig<T = any> {
-  $each: (item: T, index: number) => TemplateRef
-  $key?: (item: T, index: number) => string
-}
-
 export interface Selecter {
   querySelector<K extends keyof HTMLElementTagNameMap>(
     selectors: K
@@ -54,10 +49,10 @@ export interface ElementConfig {
   $show?: ReactiveValue<boolean>
   $class?: ReactiveValue<ClassValue>
   $style?: ReactiveValue<StyleValue>
-  $template?: () => (TemplateRef | ElementRef | null)[]
+  $template?: () => (TemplateRef | ElementRef | undefined)[] | undefined
   $if?: ReactiveValue<boolean>
   $for?: ReactiveValue<any[]>
-  $each?: (item: any, index: number) => (TemplateRef | ElementRef | null)[]
+  $each?: (item: any, index: number) => (TemplateRef | ElementRef | undefined)[] | undefined
   $key?: (item: any, index: number) => string
   
   [key: string]: any

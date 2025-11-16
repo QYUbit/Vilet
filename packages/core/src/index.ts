@@ -4,7 +4,7 @@ import { element } from "./element"
 import { effect, reactive, ref } from "./reactivity"
 import { scheduler } from "./scheduler"
 import { clone } from "./template"
-import { ClassValue, ElementConfig, ElementRef, ReactiveValue, ShowConfig, StyleValue, TemplateRef, Ref, Selecter } from "./types"
+import { ClassValue, ElementConfig, ElementRef, ReactiveValue, StyleValue, TemplateRef, Ref, Selecter } from "./types"
 
 initBindings()
 
@@ -20,7 +20,6 @@ export {
     Ref,
     ElementConfig,
     ReactiveValue,
-    ShowConfig,
     ElementRef,
     TemplateRef,
     StyleValue,

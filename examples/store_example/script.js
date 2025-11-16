@@ -275,30 +275,13 @@
     });
   }
   function bindShow(el, value) {
-    effect(() => {
-      let shouldShow;
-      let delay = 0;
-      if (isShowConfig(value)) {
-        shouldShow = getReactiveValue(value.value);
-        delay = value.hideDelay || 0;
-      } else {
-        shouldShow = getReactiveValue(value);
-      }
+    return effect(() => {
+      const shouldShow = getReactiveValue(value);
       const showEl = el;
       if (showEl._shouldShow === shouldShow) return;
-      if (!shouldShow && delay > 0) {
-        showEl._shouldShow = false;
-        setTimeout(() => {
-          el.style.display = "none";
-        }, delay);
-      } else {
-        showEl._shouldShow = shouldShow;
-        el.style.display = shouldShow ? "block" : "none";
-      }
+      showEl._shouldShow = shouldShow;
+      el.style.display = shouldShow ? "block" : "none";
     });
-  }
-  function isShowConfig(value) {
-    return typeof value === "object" && value !== null && "value" in value;
   }
   function bindClass(element2, value) {
     const el = element2;
@@ -340,7 +323,7 @@
   }
   function bindStyle(element2, value) {
     const el = element2;
-    if (el._originalStyle === void 0) {
+    if (!el._originalStyle) {
       el._originalStyle = el.getAttribute("style") || "";
     }
     return effect(() => {
@@ -398,7 +381,7 @@
     let show = false;
     let _template = null;
     let cleanup = [];
-    return effect(() => {
+    const effectCleanup = effect(() => {
       const shouldShow = config.$if ? getReactiveValue(config.$if) : true;
       const [template, cleanupFns] = getReturnValues(getReactiveValue(value), "$template");
       const templateChanged = _template?.id !== template?.id;
@@ -416,20 +399,24 @@
         cleanup = cleanupFns;
       }
     });
+    return () => {
+      effectCleanup();
+      cleanup.forEach((fn) => fn());
+    };
   }
   function bindFor(el, value, config) {
     const templates = /* @__PURE__ */ new Map();
     const cleanup = /* @__PURE__ */ new Map();
     const itemKeyMap = /* @__PURE__ */ new WeakMap();
     let keyCounter = 0;
-    return effect(() => {
+    const effectCleanup = effect(() => {
       const arr = getReactiveValue(value);
       if (!Array.isArray(arr)) return;
       const newKeys = arr.map((item, i) => {
         if (config.$key) {
           return config.$key(item, i);
         }
-        if (typeof item === "object" && item !== null) {
+        if (isObject(item)) {
           if (!itemKeyMap.has(item)) {
             itemKeyMap.set(item, `obj_${keyCounter++}`);
           }
@@ -454,7 +441,7 @@
       });
       newKeys.forEach((key, i) => {
         if (!templates.has(key)) {
-          if (config.$each === void 0) throw new Error("required $each binding is missing for $for binding");
+          if (!config.$each) throw new Error("required $each binding is missing for $for binding");
           const [template, cleanupFns] = getReturnValues(config.$each(arr[i], i), "$each");
           if (!template) return;
           template.mount(el);
@@ -479,8 +466,13 @@
         }
       });
     });
+    return () => {
+      effectCleanup();
+      cleanup.forEach((temp) => temp.forEach((fn) => fn()));
+    };
   }
   function getReturnValues(values, bindingName) {
+    if (!values) return [null, []];
     let template = null;
     let cleanupFns = [];
     values.forEach((value) => {
@@ -503,11 +495,11 @@
 
   // packages/core/src/element.ts
   function element(config) {
-    if (!isObject(config)) return null;
+    if (!isObject(config)) return;
     const root = config.$root ?? document;
     const el = config.$element ?? config.$el ?? root.querySelector(config.$selector ?? config.$select ?? config.$ ?? "");
     if (!el) {
-      return null;
+      return;
     }
     const cleanupFns = [];
     for (const [key, value] of Object.entries(config)) {

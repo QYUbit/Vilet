@@ -1,5 +1,6 @@
 import { Ref } from "../../core/src/types"
 import { effect } from "../../core/src/reactivity"
+import { log } from "../../core/src/log"
 
 export interface StoreOptions<T> {
     storage?: "localStorage" | "sessionStorage"
@@ -21,13 +22,13 @@ export function store<T>(ref: Ref<T>, options: StoreOptions<T>) {
         if (options.onload) {
             options.onload(JSON.parse(initial) as T)
         } else {
-            console.log(`Load store: ${initial}`)
+            log(`Load store: ${initial}`)
             ref.value = JSON.parse(initial)
         }
     }
     
     effect(() => {
-        console.log(`Store effect: ${ref.value}`)
+        log(`Store effect: ${ref.value}`)
         storage.setItem(options.key, JSON.stringify(ref.value))
     })
 }

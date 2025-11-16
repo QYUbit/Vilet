@@ -8,7 +8,7 @@ export function initBindings(): void {
   registerBinding<ReactiveValue<boolean>>("$show", bindShow)
   registerBinding<ReactiveValue<ClassValue>>("$class", bindClass)
   registerBinding<ReactiveValue<StyleValue>>("$style", bindStyle)
-  registerBinding<ReactiveValue<(TemplateRef | ElementRef | null)[]>>("$template", bindTemplate)
+  registerBinding<ReactiveValue<(TemplateRef | ElementRef | undefined)[]>>("$template", bindTemplate)
   registerBinding<ReactiveValue<any[]>>("$for", bindFor)
   registerBinding("$if", () => {})
   registerBinding("$each", () => {})
@@ -99,7 +99,7 @@ interface StyleElement extends HTMLElement {
 function bindStyle(element: HTMLElement, value: ReactiveValue<StyleValue>): () => void {
   const el = element as StyleElement
 
-  if (el._originalStyle === undefined) {
+  if (!el._originalStyle) {
     el._originalStyle = el.getAttribute("style") || ""
   }
   
@@ -166,7 +166,7 @@ function parseCssString(cssString: string, styles: Record<string, string>): void
 
 function bindTemplate(
   el: HTMLElement,
-  value: ReactiveValue<(TemplateRef | ElementRef | null)[]>,
+  value: ReactiveValue<(TemplateRef | ElementRef | undefined)[]>,
   config: ElementConfig
 ): () => void {
   let show = false
@@ -219,7 +219,7 @@ function bindFor<T>(
         return config.$key(item, i)
       }
       
-      if (typeof item === "object" && item !== null) {
+      if (isObject(item)) {
         if (!itemKeyMap.has(item)) {
           itemKeyMap.set(item, `obj_${keyCounter++}`)
         }
@@ -248,7 +248,7 @@ function bindFor<T>(
 
     newKeys.forEach((key, i) => {
       if (!templates.has(key)) {
-        if (config.$each === undefined) throw new Error("required $each binding is missing for $for binding")
+        if (!config.$each) throw new Error("required $each binding is missing for $for binding")
         const [template, cleanupFns] = getReturnValues(config.$each(arr[i], i), "$each")
         if (!template) return
 
@@ -284,7 +284,9 @@ function bindFor<T>(
   }
 }
 
-function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingName: string): [TemplateRef | null, Function[]] {
+function getReturnValues(values: (TemplateRef | ElementRef | undefined)[] | undefined, bindingName: string): [TemplateRef | null, Function[]] {
+  if (!values) return [null, []]
+
   let template: TemplateRef | null = null;
   let cleanupFns: Function[] = [];
 
