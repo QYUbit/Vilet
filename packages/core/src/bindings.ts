@@ -1,11 +1,11 @@
 import { registerBinding } from "./bind"
 import { effect } from "./reactivity"
-import { ClassValue, ElementConfig, ElementRef, ReactiveValue, ShowConfig, StyleValue, TemplateRef } from "./types"
+import { ClassValue, ElementConfig, ElementRef, ReactiveValue, StyleValue, TemplateRef } from "./types"
 import { getReactiveValue, isObject } from "./utils"
 
 export function initBindings(): void {
   registerBinding<ReactiveValue<string | number>>("$text", bindText)
-  registerBinding<ReactiveValue<boolean> | ShowConfig>("$show", bindShow)
+  registerBinding<ReactiveValue<boolean>>("$show", bindShow)
   registerBinding<ReactiveValue<ClassValue>>("$class", bindClass)
   registerBinding<ReactiveValue<StyleValue>>("$style", bindStyle)
   registerBinding<ReactiveValue<(TemplateRef | ElementRef | null)[]>>("$template", bindTemplate)
@@ -29,35 +29,16 @@ interface ShowElement extends HTMLElement {
   _shouldShow?: boolean
 }
 
-function bindShow(el: HTMLElement, value: ReactiveValue<boolean> | ShowConfig): void {
-  effect(() => {
-    let shouldShow: boolean
-    let delay = 0
-    
-    if (isShowConfig(value)) {
-      shouldShow = getReactiveValue(value.value)
-      delay = value.hideDelay || 0
-    } else {
-      shouldShow = getReactiveValue(value)
-    }
+function bindShow(el: HTMLElement, value: ReactiveValue<boolean>): () => void {
+  return effect(() => {
+    const shouldShow = getReactiveValue(value)
 
     const showEl = el as ShowElement
     if (showEl._shouldShow === shouldShow) return
 
-    if (!shouldShow && delay > 0) {
-      showEl._shouldShow = false
-      setTimeout(() => {
-        el.style.display = "none"
-      }, delay)
-    } else {
-      showEl._shouldShow = shouldShow
-      el.style.display = shouldShow ? "block" : "none"
-    }
+    showEl._shouldShow = shouldShow
+    el.style.display = shouldShow ? "block" : "none"
   })
-}
-
-function isShowConfig(value: any): value is ShowConfig {
-  return typeof value === "object" && value !== null && "value" in value
 }
 
 interface ClassElement extends HTMLElement {
@@ -192,7 +173,7 @@ function bindTemplate(
   let _template: TemplateRef | null = null
   let cleanup: Function[] = []
 
-  return effect(() => {
+  const effectCleanup = effect(() => {
     const shouldShow = config.$if ? getReactiveValue(config.$if) : true
     const [template, cleanupFns] = getReturnValues(getReactiveValue(value), "$template")
     const templateChanged = _template?.id !== template?.id
@@ -212,6 +193,11 @@ function bindTemplate(
       cleanup = cleanupFns
     }
   })
+
+  return () => {
+    effectCleanup()
+    cleanup.forEach(fn => fn())
+  }
 }
 
 function bindFor<T>(
@@ -224,7 +210,7 @@ function bindFor<T>(
   const itemKeyMap = new WeakMap<object, string>()
   let keyCounter = 0
 
-  return effect(() => {
+  const effectCleanup = effect(() => {
     const arr = getReactiveValue(value)
     if (!Array.isArray(arr)) return
 
@@ -291,6 +277,11 @@ function bindFor<T>(
       }
     })
   })
+
+  return () => {
+    effectCleanup()
+    cleanup.forEach(temp => temp.forEach(fn => fn()))
+  }
 }
 
 function getReturnValues(values: (TemplateRef | ElementRef | null)[], bindingName: string): [TemplateRef | null, Function[]] {

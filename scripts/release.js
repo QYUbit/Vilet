@@ -1,6 +1,7 @@
 import fs from "node:fs"
+import { execSync } from "node:child_process"
 
-const packages = ["core", "navigation", "store", "router"]
+const packages = ["core", "navigation", "store", "animation", "model"]
 
 const newVersion = process.argv[2]
 

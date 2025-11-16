@@ -47,13 +47,3 @@ export function router(config: RouterConfig): Navigation {
 
     return nav
 }
-
-router({
-    $: "#router",
-    $routes: {
-        "/": () => {
-            const template = clone("#index-page")
-            return [template]
-        }
-    }
-})

@@ -1,0 +1,2 @@
+import { registerModel } from "."
+registerModel()

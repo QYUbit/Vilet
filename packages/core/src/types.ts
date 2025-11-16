@@ -5,11 +5,6 @@ export interface Ref<T> {
     __isRef: true
 }
 
-export interface ShowConfig {
-  value: ReactiveValue<boolean>
-  hideDelay?: number
-}
-
 export type ClassValue = 
   | string 
   | Record<string, ReactiveValue<boolean>>
@@ -56,7 +51,7 @@ export interface ElementConfig {
   onsubmit?: (event: SubmitEvent, element: HTMLElement) => void
   
   $text?: ReactiveValue<string | number>
-  $show?: ReactiveValue<boolean> | ShowConfig
+  $show?: ReactiveValue<boolean>
   $class?: ReactiveValue<ClassValue>
   $style?: ReactiveValue<StyleValue>
   $template?: () => (TemplateRef | ElementRef | null)[]

@@ -1,0 +1,2 @@
+import { registerAnimation } from ".";
+registerAnimation()
